@@ -1,0 +1,41 @@
+{
+  "productName": "via-hub",
+  "version": "0.1.0",
+  "identifier": "com.viahub.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "VIA 键盘 Hub",
+        "width": 520,
+        "height": 520,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "longDescription": "VIA 键盘键位实时 Hub",
+    "shortDescription": "VIA 键盘 Hub",
+    "resources": ["resources/*"]
+  },
+  "plugins": {}
+}
