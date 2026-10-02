@@ -1,0 +1,7 @@
+{
+  "userspace_version": "1.1",
+  "build_targets": [
+    ["doio/kb16/rev1", "via_echo"],
+    ["doio/kb16/rev2", "via_echo"]
+  ]
+}

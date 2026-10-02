@@ -1,7 +1,7 @@
 {
-  "productName": "via-hub",
+  "productName": "VIA Echo",
   "version": "0.1.0",
-  "identifier": "com.viahub.app",
+  "identifier": "com.viaecho.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,12 +12,17 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "VIA 键盘 Hub",
-        "width": 520,
-        "height": 520,
+        "label": "main",
+        "title": "VIA Echo",
+        "width": 560,
+        "height": 400,
+        "minWidth": 500,
+        "minHeight": 360,
         "resizable": true,
         "decorations": false,
-        "transparent": true
+        "transparent": true,
+        "skipTaskbar": false,
+        "shadow": false
       }
     ],
     "security": {
@@ -27,14 +32,14 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.ico"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
     },
-    "longDescription": "VIA 键盘键位实时 Hub",
-    "shortDescription": "VIA 键盘 Hub",
+    "longDescription": "DOIO KB16 四层键位实时悬浮提示器",
+    "shortDescription": "DOIO KB16 键位提示器",
     "resources": ["resources/*"]
   },
   "plugins": {}

@@ -1,173 +1,82 @@
 mod config;
-mod key_listener;
-mod keymap;
+mod keycodes;
+mod models;
+mod service;
+mod storage;
+mod telemetry;
+mod via;
 
-use config::{parse_layout, ParsedLayout};
-use key_listener::{set_current_layer, spawn_key_listener};
-use keymap::scan_for_keyboard;
-use std::fs;
-use std::path::PathBuf;
-use std::sync::Arc;
+use models::{AppSettings, DeviceState, LayoutData};
+use service::DeviceService;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::ManagerExt;
 
-const DEFAULT_VID: u16 = 0xD010;
-const DEFAULT_PID: u16 = 0x1202;
-const DEFAULT_USAGE_PAGE: u16 = 0xFF60;
+struct SettingsState(Mutex<AppSettings>);
 
-fn resource_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources")
-}
-
-fn load_layout_json() -> Result<ParsedLayout, String> {
-    let path = resource_path().join("kb12-02.json");
-    let s = fs::read_to_string(&path).map_err(|e| format!("读取布局文件失败: {}: {}", path.display(), e))?;
-    parse_layout(&s)
+#[tauri::command]
+fn get_layout() -> Result<LayoutData, String> {
+    config::load_layout()
 }
 
 #[tauri::command]
-fn get_layout() -> Result<LayoutPayload, String> {
-    let parsed = load_layout_json()?;
-    Ok(LayoutPayload {
-        name: parsed.name,
-        rows: parsed.rows,
-        cols: parsed.cols,
-        width: parsed.width,
-        height: parsed.height,
-        keys: parsed
-            .keys
-            .into_iter()
-            .map(|k| KeyRectPayload {
-                row: k.row,
-                col: k.col,
-                x: k.x,
-                y: k.y,
-                w: k.w,
-                h: k.h,
-            })
-            .collect(),
-        encoders: parsed
-            .encoders
-            .into_iter()
-            .map(|e| EncoderRectPayload {
-                id: e.id,
-                row: e.row,
-                col: e.col,
-                x: e.x,
-                y: e.y,
-                w: e.w,
-                h: e.h,
-            })
-            .collect(),
-    })
+fn get_initial_state(service: tauri::State<DeviceService>) -> DeviceState {
+    service.state()
 }
-
-#[derive(serde::Serialize)]
-struct LayoutPayload {
-    name: String,
-    rows: u8,
-    cols: u8,
-    width: f64,
-    height: f64,
-    keys: Vec<KeyRectPayload>,
-    encoders: Vec<EncoderRectPayload>,
-}
-
-#[derive(serde::Serialize)]
-struct KeyRectPayload {
-    row: u8,
-    col: u8,
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
-}
-
-#[derive(serde::Serialize)]
-struct EncoderRectPayload {
-    id: String,
-    row: u8,
-    col: u8,
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
-}
-
-struct KeymapState(Arc<Mutex<Option<(Vec<Vec<u16>>, u8, u8)>>>);
 
 #[tauri::command]
-fn load_keymap_from_keyboard(
-    state: tauri::State<KeymapState>,
-) -> Result<Option<KeymapPayload>, String> {
-    let (vid, pid, usage_page) = scan_for_keyboard(Some(DEFAULT_VID), Some(DEFAULT_PID))
-        .or_else(|| Some((DEFAULT_VID, DEFAULT_PID, DEFAULT_USAGE_PAGE)))
-        .ok_or("未找到 VIA 键盘")?;
+fn refresh_keymap(service: tauri::State<DeviceService>) -> Result<(), String> {
+    service.refresh()
+}
 
-    let rows = 4u8;
-    let cols = 5u8;
+#[tauri::command]
+fn get_settings(state: tauri::State<SettingsState>) -> AppSettings {
+    state
+        .0
+        .lock()
+        .map(|settings| settings.clone())
+        .unwrap_or_default()
+}
 
-    let result = keymap::load_keymap_from_keyboard(vid, pid, usage_page, rows, cols)?;
-    if let Ok(mut guard) = state.0.lock() {
-        *guard = Some((result.raw.clone(), rows, cols));
+#[tauri::command]
+fn update_settings(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: tauri::State<SettingsState>,
+    settings: AppSettings,
+) -> Result<AppSettings, String> {
+    let settings = settings.normalized();
+    let launch_changed = state
+        .0
+        .lock()
+        .map_err(|_| "设置状态锁已损坏".to_string())?
+        .launch_at_login
+        != settings.launch_at_login;
+    apply_window_settings(&window, &settings)?;
+    if launch_changed {
+        sync_autostart(&app, settings.launch_at_login)?;
     }
-    if let Err(e) = save_keymap_cache(&result) {
-        eprintln!("缓存键位失败: {}", e);
-    }
-    Ok(Some(KeymapPayload {
-        layers: result.display.layers,
-        rows: result.display.rows,
-        cols: result.display.cols,
-    }))
+    storage::save_settings(&settings)?;
+    *state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())? = settings.clone();
+    let _ = app.emit("settings-changed", &settings);
+    Ok(settings)
 }
 
 #[tauri::command]
-fn load_keymap_from_cache(state: tauri::State<KeymapState>) -> Result<Option<KeymapPayload>, String> {
-    let result = keymap::load_keymap_cache().map_err(|e| e.to_string())?;
-    if let Ok(mut guard) = state.0.lock() {
-        *guard = Some((result.raw, result.display.rows, result.display.cols));
-    }
-    Ok(Some(KeymapPayload {
-        layers: result.display.layers,
-        rows: result.display.rows,
-        cols: result.display.cols,
-    }))
-}
-
-fn save_keymap_cache(result: &keymap::KeymapLoadResult) -> Result<(), Box<dyn std::error::Error>> {
-    let cache_dir = dirs::cache_dir().ok_or("无法获取缓存目录")?;
-    let dir = cache_dir.join("via-hub");
-    std::fs::create_dir_all(&dir)?;
-    let path = dir.join("keymap.json");
-    let cache = KeymapCache {
-        layers_display: result.display.layers.clone(),
-        layers_raw: result.raw.clone(),
-        rows: result.display.rows,
-        cols: result.display.cols,
-    };
-    let s = serde_json::to_string_pretty(&cache)?;
-    std::fs::write(path, s)?;
-    Ok(())
-}
-
-#[derive(serde::Serialize)]
-struct KeymapPayload {
-    layers: Vec<Vec<String>>,
-    rows: u8,
-    cols: u8,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct KeymapCache {
-    layers_display: Vec<Vec<String>>,
-    layers_raw: Vec<Vec<u16>>,
-    rows: u8,
-    cols: u8,
-}
-
-#[tauri::command]
-fn set_layer(layer: u8) {
-    set_current_layer(layer);
+fn unlock_window(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: tauri::State<SettingsState>,
+) -> Result<AppSettings, String> {
+    let mut settings = state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())?;
+    settings.click_through = false;
+    window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    storage::save_settings(&settings)?;
+    let result = settings.clone();
+    let _ = app.emit("settings-changed", &result);
+    Ok(result)
 }
 
 #[tauri::command]
@@ -175,25 +84,59 @@ fn exit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+fn apply_window_settings(
+    window: &tauri::WebviewWindow,
+    settings: &AppSettings,
+) -> Result<(), String> {
+    window
+        .set_always_on_top(settings.always_on_top)
+        .map_err(|error| error.to_string())?;
+    window
+        .set_ignore_cursor_events(settings.click_through)
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn sync_autostart(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let manager = app.autolaunch();
+    if enabled {
+        manager.enable().map_err(|error| error.to_string())
+    } else {
+        manager.disable().map_err(|error| error.to_string())
+    }
+}
+
 pub fn run() {
-    let keymap_state: Arc<Mutex<Option<(Vec<Vec<u16>>, u8, u8)>>> = Arc::new(Mutex::new(None));
+    let initial_device_state = storage::load_cached_state().unwrap_or_default();
+    let initial_settings = storage::load_settings();
+    let setup_settings = initial_settings.clone();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .manage(KeymapState(Arc::clone(&keymap_state)))
-        .setup(|app| {
-            let handle = app.handle().clone();
-            let arc = app.try_state::<KeymapState>().map(|s| Arc::clone(&s.0)).expect("KeymapState");
-            spawn_key_listener(handle, arc);
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .manage(SettingsState(Mutex::new(initial_settings)))
+        .setup(move |app| {
+            if let Some(window) = app.get_webview_window("main") {
+                apply_window_settings(&window, &setup_settings)?;
+            }
+            app.manage(DeviceService::spawn(
+                app.handle().clone(),
+                initial_device_state,
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_layout,
-            load_keymap_from_keyboard,
-            load_keymap_from_cache,
-            set_layer,
+            get_initial_state,
+            refresh_keymap,
+            get_settings,
+            update_settings,
+            unlock_window,
             exit_app,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error while running VIA Echo");
 }

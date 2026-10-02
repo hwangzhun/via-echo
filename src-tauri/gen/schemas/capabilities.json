@@ -1,1 +1,1 @@
-{}
+{"main-capability":{"identifier":"main-capability","description":"VIA Echo 主悬浮窗口的最小权限集","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-hide","core:window:allow-minimize","core:window:allow-show","core:window:allow-unminimize","core:window:allow-is-minimized","core:window:allow-is-visible","core:window:allow-set-skip-taskbar","core:window:allow-start-dragging","core:window:allow-set-focus"]}}
