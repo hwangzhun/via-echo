@@ -2,7 +2,8 @@ use crate::models::{
     DEVICE_PID, DEVICE_VID, ENCODER_COUNT, LAYER_COUNT, MATRIX_COLS, MATRIX_ROWS, VIA_USAGE_PAGE,
 };
 use hidapi::{HidApi, HidDevice};
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, Instant};
 
 const REPORT_SIZE: usize = 32;
 const COMMAND_GET_PROTOCOL: u8 = 0x01;
@@ -11,6 +12,8 @@ const COMMAND_CUSTOM_GET: u8 = 0x08;
 const COMMAND_GET_LAYER_COUNT: u8 = 0x11;
 const COMMAND_GET_BUFFER: u8 = 0x12;
 const COMMAND_GET_ENCODER: u8 = 0x14;
+const EXCHANGE_ATTEMPTS: usize = 3;
+const RESPONSE_TIMEOUT: Duration = Duration::from_millis(350);
 
 pub const TELEMETRY_CHANNEL: u8 = 0x00;
 pub const TELEMETRY_VALUE_ID: u8 = 0x42;
@@ -47,37 +50,60 @@ impl ViaTransport for HidTransport {
             return Err("VIA 请求超过 32 字节".into());
         }
 
-        let mut report = [0u8; REPORT_SIZE + 1];
-        report[1] = command;
-        report[2..2 + payload.len()].copy_from_slice(payload);
-        let written = self
-            .device
-            .write(&report)
-            .map_err(|error| format!("HID 写入失败: {error}"))?;
-        if written != report.len() {
-            return Err(format!("HID 写入长度异常: {written}"));
+        let mut last_unmatched = None;
+        for attempt in 0..EXCHANGE_ATTEMPTS {
+            let mut report = [0u8; REPORT_SIZE + 1];
+            report[1] = command;
+            report[2..2 + payload.len()].copy_from_slice(payload);
+            let written = self
+                .device
+                .write(&report)
+                .map_err(|error| format!("HID 写入失败: {error}"))?;
+            if written != report.len() {
+                return Err(format!("HID 写入长度异常: {written}"));
+            }
+
+            let deadline = Instant::now() + RESPONSE_TIMEOUT;
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    break;
+                }
+                let mut response = [0u8; REPORT_SIZE];
+                let read = self
+                    .device
+                    .read_timeout(&mut response, remaining.as_millis().max(1) as i32)
+                    .map_err(|error| format!("HID 读取失败: {error}"))?;
+                if read == 0 {
+                    break;
+                }
+                let response = response[..read].to_vec();
+                if response_matches(&response, command, payload) {
+                    return Ok(response);
+                }
+                // VIA and VIA Echo can share the Raw HID interface. Ignore a
+                // packet belonging to the other client and keep waiting for
+                // this request instead of treating it as a disconnect.
+                last_unmatched = response.first().copied();
+            }
+
+            if attempt + 1 < EXCHANGE_ATTEMPTS {
+                thread::sleep(Duration::from_millis(12));
+            }
         }
 
-        let mut response = [0u8; REPORT_SIZE];
-        let read = self
-            .device
-            .read_timeout(&mut response, Duration::from_millis(350).as_millis() as i32)
-            .map_err(|error| format!("HID 读取失败: {error}"))?;
-        if read == 0 {
-            return Err("HID 读取超时".into());
+        match last_unmatched {
+            Some(other) => Err(format!(
+                "VIA 正在同时通信，未收到匹配回应（最近 0x{other:02X}）"
+            )),
+            None => Err("HID 读取超时".into()),
         }
-        let response = response[..read].to_vec();
-        if response.first().copied() != Some(command) {
-            return Err(format!(
-                "VIA 回应不匹配: 0x{:02X}",
-                response.first().copied().unwrap_or(0)
-            ));
-        }
-        if response.get(1..1 + payload.len()) != Some(payload) {
-            return Err("VIA 回应参数不匹配".into());
-        }
-        Ok(response)
     }
+}
+
+fn response_matches(response: &[u8], command: u8, payload: &[u8]) -> bool {
+    response.first().copied() == Some(command)
+        && response.get(1..1 + payload.len()) == Some(payload)
 }
 
 pub struct ViaKeyboard<T: ViaTransport> {
@@ -215,5 +241,20 @@ mod tests {
         };
         let mut keyboard = ViaKeyboard::new(transport);
         assert_eq!(keyboard.protocol_version().unwrap(), 9);
+    }
+
+    #[test]
+    fn distinguishes_interleaved_via_responses() {
+        assert!(!response_matches(&[0x08, 0x00, 0x42], 0x01, &[]));
+        assert!(!response_matches(
+            &[0x12, 0x00, 0x20, 0x08],
+            0x12,
+            &[0x00, 0x00, 0x08]
+        ));
+        assert!(response_matches(
+            &[0x12, 0x00, 0x00, 0x08, 0x00],
+            0x12,
+            &[0x00, 0x00, 0x08]
+        ));
     }
 }

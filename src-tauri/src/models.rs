@@ -10,6 +10,7 @@ pub const LAYER_COUNT: u8 = 4;
 pub const ENCODER_COUNT: u8 = 3;
 pub const CACHE_VERSION: u8 = 1;
 pub const TELEMETRY_PROTOCOL_VERSION: u8 = 1;
+pub const DEFAULT_ACCENT_COLOR: &str = "#7FA6C4";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -88,8 +89,10 @@ pub struct InputState {
 #[serde(default, rename_all = "camelCase")]
 pub struct AppSettings {
     pub theme: ThemeMode,
+    pub accent_color: String,
     pub opacity: f64,
     pub auto_fade: bool,
+    pub auto_fade_delay: f64,
     pub faded_opacity: f64,
     pub always_on_top: bool,
     pub click_through: bool,
@@ -109,8 +112,10 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: ThemeMode::Dark,
+            accent_color: DEFAULT_ACCENT_COLOR.into(),
             opacity: 0.92,
             auto_fade: true,
+            auto_fade_delay: 2.8,
             faded_opacity: 0.42,
             always_on_top: true,
             click_through: false,
@@ -122,13 +127,28 @@ impl Default for AppSettings {
 
 impl AppSettings {
     pub fn normalized(mut self) -> Self {
+        self.accent_color = normalize_accent_color(&self.accent_color)
+            .unwrap_or_else(|| DEFAULT_ACCENT_COLOR.into());
         self.opacity = self.opacity.clamp(0.35, 1.0);
+        self.auto_fade_delay = self.auto_fade_delay.clamp(1.0, 30.0);
         self.faded_opacity = self.faded_opacity.clamp(0.15, self.opacity);
         self.custom_labels.retain(|key, value| {
             *value = value.trim().chars().take(24).collect();
             !key.is_empty() && !value.is_empty()
         });
         self
+    }
+}
+
+fn normalize_accent_color(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.len() == 7
+        && value.starts_with('#')
+        && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        Some(value.to_ascii_uppercase())
+    } else {
+        None
     }
 }
 
@@ -173,16 +193,20 @@ mod tests {
     fn settings_are_clamped() {
         let low = AppSettings {
             opacity: 0.1,
+            auto_fade_delay: 0.2,
             ..Default::default()
         }
         .normalized();
         let high = AppSettings {
             opacity: 4.0,
+            auto_fade_delay: 90.0,
             ..Default::default()
         }
         .normalized();
         assert_eq!(low.opacity, 0.35);
+        assert_eq!(low.auto_fade_delay, 1.0);
         assert_eq!(high.opacity, 1.0);
+        assert_eq!(high.auto_fade_delay, 30.0);
     }
 
     #[test]
@@ -192,8 +216,27 @@ mod tests {
         )
         .unwrap();
         assert!(settings.auto_fade);
+        assert_eq!(settings.auto_fade_delay, 2.8);
         assert_eq!(settings.theme, ThemeMode::Dark);
+        assert_eq!(settings.accent_color, DEFAULT_ACCENT_COLOR);
         assert_eq!(settings.faded_opacity, 0.42);
         assert!(settings.custom_labels.is_empty());
+    }
+
+    #[test]
+    fn accent_color_is_normalized_or_reset() {
+        let custom = AppSettings {
+            accent_color: " #6f91b2 ".into(),
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(custom.accent_color, "#6F91B2");
+
+        let invalid = AppSettings {
+            accent_color: "blue".into(),
+            ..Default::default()
+        }
+        .normalized();
+        assert_eq!(invalid.accent_color, DEFAULT_ACCENT_COLOR);
     }
 }

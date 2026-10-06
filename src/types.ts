@@ -40,8 +40,10 @@ export interface InputState {
 
 export interface AppSettings {
   theme: "dark" | "light";
+  accentColor: string;
   opacity: number;
   autoFade: boolean;
+  autoFadeDelay: number;
   fadedOpacity: number;
   alwaysOnTop: boolean;
   clickThrough: boolean;

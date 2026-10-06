@@ -4,8 +4,11 @@ import { listen } from "@tauri-apps/api/event";
 import { Menu } from "@tauri-apps/api/menu";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import packageInfo from "../package.json";
 import { bindingText, resolveEncoder, resolveKey, statusText } from "./model";
 import type { AppSettings, DeviceState, InputState, KeyBinding, LayoutData } from "./types";
+
+const DEFAULT_ACCENT_COLOR = "#7FA6C4";
 
 const DEFAULT_DEVICE: DeviceState = {
   status: "connecting",
@@ -18,8 +21,10 @@ const DEFAULT_DEVICE: DeviceState = {
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
+  accentColor: DEFAULT_ACCENT_COLOR,
   opacity: 0.92,
   autoFade: true,
+  autoFadeDelay: 2.8,
   fadedOpacity: 0.42,
   alwaysOnTop: true,
   clickThrough: false,
@@ -30,6 +35,15 @@ const DEFAULT_SETTINGS: AppSettings = {
 interface LabelEditor {
   id: string;
   original: string;
+}
+
+function parseHexColor(hex: string): [number, number, number] {
+  return [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)) as [number, number, number];
+}
+
+function mixColor(rgb: [number, number, number], target: number, amount: number): string {
+  const values = rgb.map((value) => Math.round(value + (target - value) * amount));
+  return `#${values.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function withSettingDefaults(settings: Partial<AppSettings>): AppSettings {
@@ -61,20 +75,30 @@ function App() {
   );
 
   useEffect(() => {
+    const accentRgb = parseHexColor(settings.accentColor);
     document.documentElement.style.setProperty("--window-opacity", String(settings.opacity));
     document.documentElement.style.setProperty("--faded-opacity", String(settings.fadedOpacity));
-  }, [settings.opacity, settings.fadedOpacity]);
+    document.documentElement.style.setProperty("--accent", settings.accentColor);
+    document.documentElement.style.setProperty("--accent-rgb", accentRgb.join(", "));
+    document.documentElement.style.setProperty("--accent-strong", mixColor(accentRgb, 0, 0.18));
+    document.documentElement.style.setProperty("--accent-soft", mixColor(accentRgb, 255, 0.48));
+    document.documentElement.style.setProperty("--accent-mid", mixColor(accentRgb, 255, 0.14));
+    document.documentElement.style.setProperty("--accent-deep", mixColor(accentRgb, 0, 0.34));
+    const brightness = accentRgb[0] * 0.299 + accentRgb[1] * 0.587 + accentRgb[2] * 0.114;
+    document.documentElement.style.setProperty("--accent-contrast", brightness > 155 ? "#14232e" : "#ffffff");
+  }, [settings.opacity, settings.fadedOpacity, settings.accentColor]);
 
   useEffect(() => {
     if (!settings.autoFade || settingsOpen || editingLabels || labelEditor) {
       setIsFaded(false);
       return;
     }
-    let timer = window.setTimeout(() => setIsFaded(true), 2800);
+    const delay = settings.autoFadeDelay * 1000;
+    let timer = window.setTimeout(() => setIsFaded(true), delay);
     const wake = () => {
       setIsFaded(false);
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setIsFaded(true), 2800);
+      timer = window.setTimeout(() => setIsFaded(true), delay);
     };
     window.addEventListener("pointermove", wake);
     window.addEventListener("keydown", wake);
@@ -85,7 +109,7 @@ function App() {
       window.removeEventListener("keydown", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [settings.autoFade, settingsOpen, editingLabels, labelEditor]);
+  }, [settings.autoFade, settings.autoFadeDelay, settingsOpen, editingLabels, labelEditor]);
 
   useEffect(() => {
     if (!editingLabels) return;
@@ -172,12 +196,6 @@ function App() {
           {
             id: "unlock",
             text: "解除鼠标穿透",
-            action: async () => {
-              await invoke("unlock_window");
-              await appWindow.show();
-              if (await appWindow.isMinimized()) await appWindow.unminimize();
-              await appWindow.setFocus();
-            },
           },
           {
             id: "refresh",
@@ -258,16 +276,28 @@ function App() {
     return label ? { ...binding, displayLabel: label, icon: null } : binding;
   };
 
+  const startDragFromBlank = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, a, label, .keycap, .encoder-unit, .settings-panel, .edit-toolbar, .label-editor-layer, [data-tauri-drag-region]")) return;
+    event.preventDefault();
+    void getCurrentWindow().startDragging();
+  };
+
   if (!layout) {
     return <div className="loading-shell">正在启动 VIA Echo…</div>;
   }
 
   return (
-    <div className={`app-shell theme-${settings.theme} ${isFaded ? "idle-faded" : ""} ${editingLabels ? "editing-labels" : ""}`}>
+    <div
+      className={`app-shell theme-${settings.theme} ${isFaded ? "idle-faded" : ""} ${editingLabels ? "editing-labels" : ""}`}
+      onPointerDown={startDragFromBlank}
+    >
       <header className="topbar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region>
           <span className={`status-dot ${device.status}`} aria-hidden="true" />
           <span className="brand-name">VIA Echo</span>
+          <span className="app-version">v{packageInfo.version}</span>
           <span className="status-copy">{statusText(device.status)}</span>
         </div>
         <nav className="layer-tabs" aria-label="键盘层">
@@ -365,6 +395,25 @@ function App() {
               <button className={settings.theme === "light" ? "active" : ""} onClick={() => void saveSettings({ theme: "light" })}>亮色</button>
             </div>
           </div>
+          <div className="color-setting">
+            <span>主题强调色</span>
+            <div>
+              <input
+                type="color"
+                value={settings.accentColor}
+                onChange={(event) => void saveSettings({ accentColor: event.target.value.toUpperCase() })}
+                aria-label="自定义主题强调色"
+              />
+              <code>{settings.accentColor.toUpperCase()}</code>
+              <button
+                type="button"
+                onClick={() => void saveSettings({ accentColor: DEFAULT_ACCENT_COLOR })}
+                disabled={settings.accentColor.toUpperCase() === DEFAULT_ACCENT_COLOR}
+              >
+                默认
+              </button>
+            </div>
+          </div>
           <label className="range-setting">
             <span>透明度 <b>{Math.round(settings.opacity * 100)}%</b></span>
             <input
@@ -376,19 +425,32 @@ function App() {
               onChange={(event) => void saveSettings({ opacity: Number(event.target.value) })}
             />
           </label>
-          <Toggle label="闲置 2.8 秒后自动变淡" checked={settings.autoFade} onChange={(value) => void saveSettings({ autoFade: value })} />
+          <Toggle label="闲置后自动变淡" checked={settings.autoFade} onChange={(value) => void saveSettings({ autoFade: value })} />
           {settings.autoFade && (
-            <label className="range-setting compact-range">
-              <span>变淡强度 <b>{Math.round(settings.fadedOpacity * 100)}%</b></span>
-              <input
-                type="range"
-                min="0.15"
-                max={settings.opacity}
-                step="0.05"
-                value={settings.fadedOpacity}
-                onChange={(event) => void saveSettings({ fadedOpacity: Number(event.target.value) })}
-              />
-            </label>
+            <div className="fade-settings">
+              <label className="range-setting compact-range">
+                <span>等待时间 <b>{settings.autoFadeDelay.toFixed(1).replace(".0", "")} 秒</b></span>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="0.5"
+                  value={settings.autoFadeDelay}
+                  onChange={(event) => void saveSettings({ autoFadeDelay: Number(event.target.value) })}
+                />
+              </label>
+              <label className="range-setting compact-range">
+                <span>变淡强度 <b>{Math.round(settings.fadedOpacity * 100)}%</b></span>
+                <input
+                  type="range"
+                  min="0.15"
+                  max={settings.opacity}
+                  step="0.05"
+                  value={settings.fadedOpacity}
+                  onChange={(event) => void saveSettings({ fadedOpacity: Number(event.target.value) })}
+                />
+              </label>
+            </div>
           )}
           <Toggle label="始终置顶" checked={settings.alwaysOnTop} onChange={(value) => void saveSettings({ alwaysOnTop: value })} />
           <Toggle label="Windows 登录时启动" checked={settings.launchAtLogin} onChange={(value) => void saveSettings({ launchAtLogin: value })} />
@@ -402,7 +464,28 @@ function App() {
           >
             {editingLabels ? "完成键名编辑" : "手动设置键位名称"}
           </button>
-          <p className="settings-note">键名按层独立保存。鼠标穿透不会带到下次启动，也可用托盘左键解锁。</p>
+          <p className="settings-note">键名按层独立保存。鼠标穿透不会带到下次启动，可从托盘菜单解除。</p>
+          <div className="about-section">
+            <div className="about-heading">
+              <span>关于 VIA Echo</span>
+              <b>v{packageInfo.version}</b>
+            </div>
+            <p>DOIO KB16 的 VIA 键位与输入状态悬浮提示器。</p>
+            <div className="about-links">
+              <a
+                href="https://github.com/hwangzhun/via-echo"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void invoke("open_repository");
+                }}
+              >
+                GitHub 仓库 <span aria-hidden="true">↗</span>
+              </a>
+              <span>作者 Hwangzhun</span>
+            </div>
+          </div>
         </section>
       )}
 

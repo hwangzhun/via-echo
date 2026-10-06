@@ -129,9 +129,23 @@ fn run_worker(
         if let Some(opened) = keyboard.as_mut() {
             if refresh_requested {
                 match load_bindings(opened, &shared_state) {
-                    Ok(()) => emit_state(&app, &shared_state),
+                    Ok(()) => {
+                        if compatible {
+                            let layer = previous_frame
+                                .as_ref()
+                                .map(|frame| frame.active_layer)
+                                .unwrap_or_default();
+                            update_connected_state(&app, &shared_state, layer);
+                        } else {
+                            emit_state(&app, &shared_state);
+                        }
+                    }
                     Err(message) => {
-                        set_status(&app, &shared_state, DeviceStatus::Error, Some(message))
+                        set_message(
+                            &app,
+                            &shared_state,
+                            Some(format!("键位刷新暂未完成，请稍后重试：{message}")),
+                        );
                     }
                 }
             }
@@ -155,9 +169,15 @@ fn run_worker(
                             {
                                 let _ = app.emit("input-state", &input);
                             }
-                            if previous_frame.as_ref().map(|old| old.active_layer)
-                                != Some(frame.active_layer)
-                            {
+                            let state_needs_update = shared_state
+                                .lock()
+                                .map(|state| {
+                                    state.status != DeviceStatus::Connected
+                                        || state.message.is_some()
+                                        || state.active_layer != frame.active_layer
+                                })
+                                .unwrap_or(true);
+                            if state_needs_update {
                                 update_connected_state(&app, &shared_state, frame.active_layer);
                             }
                             previous_input = InputState {
@@ -264,6 +284,19 @@ fn set_status(
     let changed = if let Ok(mut state) = shared_state.lock() {
         let changed = state.status != status || state.message != message;
         state.status = status;
+        state.message = message;
+        changed
+    } else {
+        false
+    };
+    if changed {
+        emit_state(app, shared_state);
+    }
+}
+
+fn set_message(app: &AppHandle, shared_state: &Arc<Mutex<DeviceState>>, message: Option<String>) {
+    let changed = if let Ok(mut state) = shared_state.lock() {
+        let changed = state.message != message;
         state.message = message;
         changed
     } else {

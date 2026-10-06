@@ -1,6 +1,9 @@
-use crate::models::{
-    AppSettings, DeviceState, DeviceStatus, EncoderBinding, KeyBinding, CACHE_VERSION, DEVICE_PID,
-    DEVICE_VID,
+use crate::{
+    keycodes::binding_from_code,
+    models::{
+        AppSettings, DeviceState, DeviceStatus, EncoderBinding, KeyBinding, CACHE_VERSION,
+        DEVICE_PID, DEVICE_VID,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -33,7 +36,7 @@ pub fn load_cached_state() -> Option<DeviceState> {
 
 fn load_cache_at(path: &Path) -> Result<DeviceState, String> {
     let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let cache: KeymapCache = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    let mut cache: KeymapCache = serde_json::from_str(&text).map_err(|error| error.to_string())?;
     if cache.version != CACHE_VERSION
         || cache.vendor_id != DEVICE_VID
         || cache.product_id != DEVICE_PID
@@ -41,6 +44,16 @@ fn load_cache_at(path: &Path) -> Result<DeviceState, String> {
         || cache.encoders.len() != 4
     {
         return Err("缓存版本或设备不匹配".into());
+    }
+    // Labels and icon policy belong to the running app, not to a stale cache.
+    // Rebuild them from raw keycodes so UI-only changes also apply offline.
+    for binding in cache.layers.iter_mut().flatten() {
+        *binding = binding_from_code(binding.raw_code);
+    }
+    for encoder in cache.encoders.iter_mut().flatten() {
+        encoder.press = binding_from_code(encoder.press.raw_code);
+        encoder.counter_clockwise = binding_from_code(encoder.counter_clockwise.raw_code);
+        encoder.clockwise = binding_from_code(encoder.clockwise.raw_code);
     }
     Ok(DeviceState {
         status: DeviceStatus::Offline,

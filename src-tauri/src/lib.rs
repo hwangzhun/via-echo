@@ -8,6 +8,7 @@ mod via;
 
 use models::{AppSettings, DeviceState, LayoutData};
 use service::DeviceService;
+use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
@@ -63,11 +64,15 @@ fn update_settings(
 }
 
 #[tauri::command]
-fn unlock_window(
-    app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
-    state: tauri::State<SettingsState>,
-) -> Result<AppSettings, String> {
+fn unlock_window(app: tauri::AppHandle) -> Result<AppSettings, String> {
+    unlock_window_impl(&app)
+}
+
+fn unlock_window_impl(app: &tauri::AppHandle) -> Result<AppSettings, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+    let state = app.state::<SettingsState>();
     let mut settings = state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())?;
     settings.click_through = false;
     window
@@ -79,9 +84,36 @@ fn unlock_window(
     Ok(result)
 }
 
+fn restore_interactive_window(app: &tauri::AppHandle) -> Result<(), String> {
+    unlock_window_impl(app)?;
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    if window.is_minimized().map_err(|error| error.to_string())? {
+        window.unminimize().map_err(|error| error.to_string())?;
+    }
+    window.set_focus().map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+#[tauri::command]
+fn open_repository() -> Result<(), String> {
+    const URL: &str = "https://github.com/hwangzhun/via-echo";
+    #[cfg(target_os = "windows")]
+    let result = Command::new("cmd").args(["/C", "start", "", URL]).spawn();
+    #[cfg(target_os = "macos")]
+    let result = Command::new("open").arg(URL).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = Command::new("xdg-open").arg(URL).spawn();
+
+    result
+        .map(|_| ())
+        .map_err(|error| format!("无法打开 GitHub 仓库：{error}"))
 }
 
 fn apply_window_settings(
@@ -118,6 +150,16 @@ pub fn run() {
             None,
         ))
         .manage(SettingsState(Mutex::new(initial_settings)))
+        .on_menu_event(|app, event| {
+            // Handle the emergency unlock natively. A click-through window must
+            // not rely solely on its WebView/JavaScript callback to become
+            // interactive again.
+            if event.id().as_ref() == "unlock" {
+                if let Err(message) = restore_interactive_window(app) {
+                    eprintln!("解除鼠标穿透失败：{message}");
+                }
+            }
+        })
         .setup(move |app| {
             if let Some(window) = app.get_webview_window("main") {
                 apply_window_settings(&window, &setup_settings)?;
@@ -135,6 +177,7 @@ pub fn run() {
             get_settings,
             update_settings,
             unlock_window,
+            open_repository,
             exit_app,
         ])
         .run(tauri::generate_context!())

@@ -46,7 +46,7 @@ fn describe(code: u16) -> (String, String, Option<String>) {
         return (
             format!("MODS(0x{mods:02X}, 0x{base:02X})"),
             labels.join("+"),
-            Some("⌨".into()),
+            None,
         );
     }
     if (0x2000..=0x3FFF).contains(&code) {
@@ -125,13 +125,15 @@ fn describe(code: u16) -> (String, String, Option<String>) {
         0x0050 => ("KC_LEFT", "左", Some("←")),
         0x0051 => ("KC_DOWN", "下", Some("↓")),
         0x0052 => ("KC_UP", "上", Some("↑")),
-        0x00A8 => ("KC_MUTE", "静音", Some("🔇")),
-        0x00A9 => ("KC_VOLU", "音量 +", Some("🔊")),
-        0x00AA => ("KC_VOLD", "音量 -", Some("🔉")),
-        0x00AB => ("KC_MNXT", "下一曲", Some("⏭")),
-        0x00AC => ("KC_MPRV", "上一曲", Some("⏮")),
-        0x00AD => ("KC_MSTP", "停止", Some("⏹")),
-        0x00AE => ("KC_MPLY", "播放/暂停", Some("⏯")),
+        // Keep media bindings as text. Emoji glyphs vary by platform and can
+        // become colored artwork that clashes with the keycap typography.
+        0x00A8 => ("KC_MUTE", "静音", None),
+        0x00A9 => ("KC_VOLU", "音量 +", None),
+        0x00AA => ("KC_VOLD", "音量 -", None),
+        0x00AB => ("KC_MNXT", "下一曲", None),
+        0x00AC => ("KC_MPRV", "上一曲", None),
+        0x00AD => ("KC_MSTP", "停止", None),
+        0x00AE => ("KC_MPLY", "播放/暂停", None),
         0x00CD => ("KC_MS_U", "鼠标上", Some("↑")),
         0x00CE => ("KC_MS_D", "鼠标下", Some("↓")),
         0x00CF => ("KC_MS_L", "鼠标左", Some("←")),
@@ -144,11 +146,11 @@ fn describe(code: u16) -> (String, String, Option<String>) {
         0x7846 => ("RM_HUED", "色相 -", Some("◉")),
         0x7847 => ("RM_SATU", "饱和 +", Some("◉")),
         0x7848 => ("RM_SATD", "饱和 -", Some("◉")),
-        0x7849 => ("RM_VALU", "亮度 +", Some("☀")),
-        0x784A => ("RM_VALD", "亮度 -", Some("☀")),
+        0x7849 => ("RM_VALU", "亮度 +", None),
+        0x784A => ("RM_VALD", "亮度 -", None),
         0x784B => ("RM_SPDU", "速度 +", Some("◉")),
         0x784C => ("RM_SPDD", "速度 -", Some("◉")),
-        0x7C00 => ("QK_BOOT", "刷写模式", Some("⚙")),
+        0x7C00 => ("QK_BOOT", "刷写模式", None),
         _ => return (format!("0x{code:04X}"), "未知".into(), Some("?".into())),
     };
     (item.0.into(), item.1.into(), item.2.map(str::to_owned))
@@ -171,5 +173,14 @@ mod tests {
         let binding = binding_from_code(0x6ABC);
         assert_eq!(binding.qmk_name, "0x6ABC");
         assert_eq!(binding.display_label, "未知");
+    }
+
+    #[test]
+    fn avoids_emoji_for_typographic_key_labels() {
+        for code in [
+            0x0104, 0x00A8, 0x00A9, 0x00AA, 0x00AB, 0x00AC, 0x00AD, 0x00AE, 0x7849, 0x784A, 0x7C00,
+        ] {
+            assert_eq!(binding_from_code(code).icon, None, "keycode 0x{code:04X}");
+        }
     }
 }
