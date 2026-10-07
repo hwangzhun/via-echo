@@ -1,6 +1,6 @@
 {
-  "productName": "VIA Echo",
-  "version": "0.1.0",
+  "productName": "viaecho",
+  "version": "0.2.0",
   "identifier": "com.viaecho.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VIA Echo",
+        "title": "viaecho",
         "width": 560,
         "height": 400,
         "minWidth": 500,
@@ -22,6 +22,20 @@
         "decorations": false,
         "transparent": true,
         "skipTaskbar": false,
+        "shadow": false
+      },
+      {
+        "label": "settings",
+        "url": "index.html?window=settings",
+        "title": "viaecho · 配置",
+        "width": 960,
+        "height": 680,
+        "minWidth": 800,
+        "minHeight": 560,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "resizable": true,
         "shadow": false
       }
     ],
@@ -32,7 +46,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
@@ -40,7 +57,9 @@
     },
     "longDescription": "DOIO KB16 四层键位实时悬浮提示器",
     "shortDescription": "DOIO KB16 键位提示器",
-    "resources": ["resources/*"]
+    "resources": [
+      "resources/*"
+    ]
   },
   "plugins": {}
 }

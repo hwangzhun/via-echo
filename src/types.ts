@@ -60,3 +60,12 @@ export interface LayoutData {
   keys: Array<{ row: number; col: number; x: number; y: number; w: number; h: number }>;
   encoders: Array<{ id: string; row: number; col: number; x: number; y: number; w: number; h: number }>;
 }
+
+export type SettingsPatch = Partial<Omit<AppSettings, "customLabels">> & {
+  customLabels?: Record<string, string | null>;
+};
+
+export interface RefreshState {
+  status: "idle" | "running" | "success" | "error";
+  message?: string | null;
+}

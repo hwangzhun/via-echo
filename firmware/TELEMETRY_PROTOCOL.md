@@ -1,6 +1,6 @@
-# VIA Echo 遥测协议 v1
+# viaecho 遥测协议 v1
 
-VIA Echo 电脑端通过 VIA Raw HID 向键盘固件查询实时状态。该通道只读取状态，不会修改 VIA 键位或改变键盘原有的输出行为。
+viaecho 电脑端通过 VIA Raw HID 向键盘固件查询实时状态。该通道只读取状态，不会修改 VIA 键位或改变键盘原有的输出行为。
 
 ## 请求
 

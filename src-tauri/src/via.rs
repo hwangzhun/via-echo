@@ -81,7 +81,7 @@ impl ViaTransport for HidTransport {
                 if response_matches(&response, command, payload) {
                     return Ok(response);
                 }
-                // VIA and VIA Echo can share the Raw HID interface. Ignore a
+                // VIA and viaecho can share the Raw HID interface. Ignore a
                 // packet belonging to the other client and keep waiting for
                 // this request instead of treating it as a disconnect.
                 last_unmatched = response.first().copied();
@@ -144,7 +144,7 @@ impl<T: ViaTransport> ViaKeyboard<T> {
             4
         };
         if available < LAYER_COUNT {
-            return Err(format!("键盘仅提供 {available} 层，VIA Echo 需要 4 层"));
+            return Err(format!("键盘仅提供 {available} 层，viaecho 需要 4 层"));
         }
 
         (0..LAYER_COUNT)

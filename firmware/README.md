@@ -1,8 +1,8 @@
 # KB16 配套固件
 
-这是 VIA Echo 的 QMK 配套固件源码。同一份 userspace 可分别为 DOIO KB16-01 的 `rev1` 和 `rev2` 两个硬件版本构建。
+这是 viaecho 的 QMK 配套固件源码。同一份 userspace 可分别为 DOIO KB16-01 的 `rev1` 和 `rev2` 两个硬件版本构建。
 
-固件保留 VIA 动态改键、4 层键位、RGB、OLED 层号和动态旋钮映射，同时增加 VIA Echo 所需的实时状态回传。
+固件保留 VIA 动态改键、4 层键位、RGB、OLED 层号和动态旋钮映射，同时增加 viaecho 所需的实时状态回传。
 
 ## 刷写前必须做的事
 
@@ -69,16 +69,16 @@ qmk_firmware/keyboards/doio/kb16/keymaps/via_echo
 4. 使用 QMK Toolbox 或对应命令刷入正确的固件。
 5. 拔插键盘，等待 Windows 重新识别。
 6. 打开 VIA，导入刷写前保存的键位配置。
-7. 启动 VIA Echo，检查连接状态、当前层、按键高亮和三个旋钮的反馈。
+7. 启动 viaecho，检查连接状态、当前层、按键高亮和三个旋钮的反馈。
 
 ## 刷写后的验收项目
 
 - VIA 可以正常识别键盘并导入备份。
 - 16 个普通键都能正常输出。
-- `MO` / `TG` / `TO` 可正常切换键盘层，VIA Echo 的 L1–L4 指示同步变化。
+- `MO` / `TG` / `TO` 可正常切换键盘层，viaecho 的 L1–L4 指示同步变化。
 - 多键同时按下时，对应键位都会高亮。
 - 三个旋钮的左转、右转和按压都有反馈，原本的 VIA 旋钮动作仍然执行。
-- USB 拔插、Windows 休眠恢复后，VIA Echo 可以自动重连。
+- USB 拔插、Windows 休眠恢复后，viaecho 可以自动重连。
 
 ## 恢复原固件
 

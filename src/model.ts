@@ -50,7 +50,7 @@ export function statusText(status: DeviceStatus): string {
   return {
     connecting: "正在连接",
     connected: "已连接",
-    incompatible: "固件需升级",
+    incompatible: "无实时遥测",
     offline: "离线",
     error: "连接异常",
   }[status];
@@ -59,4 +59,10 @@ export function statusText(status: DeviceStatus): string {
 export function bindingText(binding: KeyBinding): string {
   if (binding.icon && binding.displayLabel.length > 3) return binding.icon;
   return binding.displayLabel;
+}
+
+// Telemetry support is separate from the physical connection state.
+export function connectionState(status: DeviceStatus): "connected" | "disconnected" | "error" {
+  if (status === "error") return "error";
+  return status === "connected" || status === "incompatible" ? "connected" : "disconnected";
 }

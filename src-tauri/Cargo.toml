@@ -1,13 +1,13 @@
 [package]
-name = "via-echo"
-version = "0.1.0"
+name = "viaecho"
+version = "0.2.0"
 description = "DOIO KB16 floating keymap companion"
-authors = ["VIA Echo contributors"]
+authors = ["viaecho contributors"]
 edition = "2021"
 rust-version = "1.70"
 
 [lib]
-name = "via_echo_lib"
+name = "viaecho_lib"
 crate-type = ["rlib"]
 
 [build-dependencies]

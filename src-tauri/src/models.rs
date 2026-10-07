@@ -100,6 +100,72 @@ pub struct AppSettings {
     pub custom_labels: HashMap<String, String>,
 }
 
+/// Only supplied fields are changed. Label entries are merged; null removes one label.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SettingsPatch {
+    pub theme: Option<ThemeMode>,
+    pub accent_color: Option<String>,
+    pub opacity: Option<f64>,
+    pub auto_fade: Option<bool>,
+    pub auto_fade_delay: Option<f64>,
+    pub faded_opacity: Option<f64>,
+    pub always_on_top: Option<bool>,
+    pub click_through: Option<bool>,
+    pub launch_at_login: Option<bool>,
+    pub custom_labels: Option<HashMap<String, Option<String>>>,
+}
+
+impl SettingsPatch {
+    pub fn apply(self, current: &AppSettings) -> AppSettings {
+        let mut next = current.clone();
+        macro_rules! patch {
+            ($($field:ident),*) => { $(if let Some(value) = self.$field { next.$field = value; })* };
+        }
+        patch!(
+            theme,
+            accent_color,
+            opacity,
+            auto_fade,
+            auto_fade_delay,
+            faded_opacity,
+            always_on_top,
+            click_through,
+            launch_at_login
+        );
+        if let Some(labels) = self.custom_labels {
+            for (id, value) in labels {
+                match value {
+                    Some(label) => {
+                        next.custom_labels.insert(id, label);
+                    }
+                    None => {
+                        next.custom_labels.remove(&id);
+                    }
+                }
+            }
+        }
+        next.normalized()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshState {
+    pub status: RefreshStatus,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RefreshStatus {
+    #[default]
+    Idle,
+    Running,
+    Success,
+    Error,
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
@@ -188,6 +254,52 @@ pub struct EncoderRect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn patches_preserve_other_fields_and_merge_individual_labels() {
+        let initial = AppSettings::default();
+        let first: SettingsPatch = serde_json::from_str(
+            r#"{"opacity":0.7,"customLabels":{"key:0:0:0":"复制","key:1:0:0":"剪辑"}}"#,
+        )
+        .unwrap();
+        let second: SettingsPatch = serde_json::from_str(
+            r#"{"theme":"light","customLabels":{"key:0:0:0":null,"encoder:0:0:cw":"音量"}}"#,
+        )
+        .unwrap();
+        let updated = second.apply(&first.apply(&initial));
+        assert_eq!(updated.opacity, 0.7);
+        assert_eq!(updated.theme, ThemeMode::Light);
+        assert_eq!(updated.custom_labels.get("key:1:0:0").unwrap(), "剪辑");
+        assert_eq!(updated.custom_labels.get("encoder:0:0:cw").unwrap(), "音量");
+        assert!(!updated.custom_labels.contains_key("key:0:0:0"));
+        assert_eq!(updated.auto_fade, initial.auto_fade);
+    }
+
+    #[test]
+    fn rapid_independent_patches_keep_latest_values_and_normalize_opacity() {
+        let mut state = AppSettings::default();
+        for opacity in [0.8, 0.6, 0.4] {
+            state = SettingsPatch {
+                opacity: Some(opacity),
+                ..Default::default()
+            }
+            .apply(&state);
+            state = SettingsPatch {
+                click_through: Some(true),
+                ..Default::default()
+            }
+            .apply(&state);
+        }
+        assert_eq!(state.opacity, 0.4);
+        assert_eq!(state.faded_opacity, 0.4);
+        assert!(state.click_through);
+        let updated = SettingsPatch {
+            custom_labels: Some(HashMap::from([("key:0:0:0".into(), Some("🎵".repeat(30)))])),
+            ..Default::default()
+        }
+        .apply(&state);
+        assert_eq!(updated.custom_labels["key:0:0:0"].chars().count(), 24);
+    }
 
     #[test]
     fn settings_are_clamped() {

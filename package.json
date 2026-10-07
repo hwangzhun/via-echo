@@ -1,23 +1,26 @@
 {
-  "name": "via-echo",
+  "name": "viaecho",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/ensure-icon.js && tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "tauri": "node scripts/ensure-icon.js && tauri"
+    "tauri": "node scripts/ensure-icon.js && tauri",
+    "icons": "node scripts/ensure-icon.js"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@tauri-apps/api": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.4",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",

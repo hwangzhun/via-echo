@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    via_echo_lib::run()
+    viaecho_lib::run()
 }

@@ -1,6 +1,7 @@
 use crate::keycodes::binding_from_code;
 use crate::models::{
-    DeviceState, DeviceStatus, EncoderBinding, InputState, ENCODER_COUNT, LAYER_COUNT, MATRIX_COLS,
+    DeviceState, DeviceStatus, EncoderBinding, InputState, RefreshState, RefreshStatus,
+    ENCODER_COUNT, LAYER_COUNT, MATRIX_COLS,
 };
 use crate::storage::save_cached_state;
 use crate::telemetry::TelemetryFrame;
@@ -18,6 +19,9 @@ enum ServiceCommand {
 pub struct DeviceService {
     state: Arc<Mutex<DeviceState>>,
     sender: mpsc::Sender<ServiceCommand>,
+    refresh_state: Arc<Mutex<RefreshState>>,
+    input_state: Arc<Mutex<InputState>>,
+    app: AppHandle,
 }
 
 impl DeviceService {
@@ -25,8 +29,27 @@ impl DeviceService {
         let state = Arc::new(Mutex::new(initial_state));
         let worker_state = Arc::clone(&state);
         let (sender, receiver) = mpsc::channel();
-        thread::spawn(move || run_worker(app, worker_state, receiver));
-        Self { state, sender }
+        let refresh_state = Arc::new(Mutex::new(RefreshState::default()));
+        let worker_refresh = refresh_state.clone();
+        let input_state = Arc::new(Mutex::new(InputState::default()));
+        let worker_input = input_state.clone();
+        let worker_app = app.clone();
+        thread::spawn(move || {
+            run_worker(
+                worker_app,
+                worker_state,
+                receiver,
+                worker_refresh,
+                worker_input,
+            )
+        });
+        Self {
+            state,
+            sender,
+            refresh_state,
+            input_state,
+            app,
+        }
     }
 
     pub fn state(&self) -> DeviceState {
@@ -36,10 +59,36 @@ impl DeviceService {
             .unwrap_or_default()
     }
 
+    pub fn input_state(&self) -> InputState {
+        self.input_state
+            .lock()
+            .map(|state| state.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn refresh_state(&self) -> RefreshState {
+        self.refresh_state
+            .lock()
+            .map(|state| state.clone())
+            .unwrap_or_default()
+    }
+
     pub fn refresh(&self) -> Result<(), String> {
-        self.sender
-            .send(ServiceCommand::Refresh)
-            .map_err(|error| error.to_string())
+        let mut state = self.refresh_state.lock().map_err(|_| "刷新状态锁已损坏")?;
+        if state.status == RefreshStatus::Running {
+            return Ok(());
+        }
+        *state = RefreshState {
+            status: RefreshStatus::Running,
+            message: None,
+        };
+        let _ = self.app.emit("refresh-state", state.clone());
+        if let Err(error) = self.sender.send(ServiceCommand::Refresh) {
+            *state = refresh_result(Err(error.to_string()));
+            let _ = self.app.emit("refresh-state", state.clone());
+            return Err(error.to_string());
+        }
+        Ok(())
     }
 }
 
@@ -53,6 +102,8 @@ fn run_worker(
     app: AppHandle,
     shared_state: Arc<Mutex<DeviceState>>,
     receiver: mpsc::Receiver<ServiceCommand>,
+    refresh_state: Arc<Mutex<RefreshState>>,
+    input_state: Arc<Mutex<InputState>>,
 ) {
     let mut keyboard: Option<ViaKeyboard<HidTransport>> = None;
     let mut compatible = false;
@@ -85,7 +136,7 @@ fn run_worker(
                                 previous_input = frame.input_since(None);
                                 previous_frame = Some(frame.clone());
                                 update_connected_state(&app, &shared_state, frame.active_layer);
-                                let _ = app.emit("input-state", &previous_input);
+                                publish_input(&app, &input_state, &previous_input);
                             }
                             Err(message) => {
                                 compatible = false;
@@ -95,7 +146,7 @@ fn run_worker(
                                     &shared_state,
                                     DeviceStatus::Incompatible,
                                     Some(format!(
-                                        "已读取键位，但固件不支持 VIA Echo 遥测：{message}"
+                                        "已读取键位，但固件不支持 viaecho 遥测：{message}"
                                     )),
                                 );
                             }
@@ -126,9 +177,14 @@ fn run_worker(
             }
         }
 
+        if refresh_requested && keyboard.is_none() {
+            finish_refresh(&app, &refresh_state, Err("键盘未连接，请连接后重试".into()));
+        }
         if let Some(opened) = keyboard.as_mut() {
             if refresh_requested {
-                match load_bindings(opened, &shared_state) {
+                let result = load_bindings(opened, &shared_state);
+                finish_refresh(&app, &refresh_state, result.clone());
+                match result {
                     Ok(()) => {
                         if compatible {
                             let layer = previous_frame
@@ -167,7 +223,7 @@ fn run_worker(
                             if input.pressed_positions != previous_input.pressed_positions
                                 || !input.encoder_deltas.is_empty()
                             {
-                                let _ = app.emit("input-state", &input);
+                                publish_input(&app, &input_state, &input);
                             }
                             let state_needs_update = shared_state
                                 .lock()
@@ -197,7 +253,7 @@ fn run_worker(
                     compatible = false;
                     previous_frame = None;
                     previous_input = InputState::default();
-                    let _ = app.emit("input-state", InputState::default());
+                    publish_input(&app, &input_state, &InputState::default());
                     set_status(
                         &app,
                         &shared_state,
@@ -210,6 +266,37 @@ fn run_worker(
         }
 
         thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn publish_input(app: &AppHandle, state: &Mutex<InputState>, input: &InputState) {
+    if let Ok(mut snapshot) = state.lock() {
+        // Snapshots retain held keys, but must not replay past encoder movement.
+        *snapshot = InputState {
+            pressed_positions: input.pressed_positions.clone(),
+            encoder_deltas: Vec::new(),
+        };
+        let _ = app.emit("input-state", input);
+    }
+}
+
+fn refresh_result(result: Result<(), String>) -> RefreshState {
+    match result {
+        Ok(()) => RefreshState {
+            status: RefreshStatus::Success,
+            message: Some("键位已刷新".into()),
+        },
+        Err(message) => RefreshState {
+            status: RefreshStatus::Error,
+            message: Some(message),
+        },
+    }
+}
+
+fn finish_refresh(app: &AppHandle, state: &Mutex<RefreshState>, result: Result<(), String>) {
+    if let Ok(mut state) = state.lock() {
+        *state = refresh_result(result);
+        let _ = app.emit("refresh-state", state.clone());
     }
 }
 

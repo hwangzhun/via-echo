@@ -6,10 +6,12 @@ mod storage;
 mod telemetry;
 mod via;
 
-use models::{AppSettings, DeviceState, LayoutData};
+use models::{AppSettings, DeviceState, InputState, LayoutData, RefreshState, SettingsPatch};
 use service::DeviceService;
 use std::process::Command;
 use std::sync::Mutex;
+use tauri::menu::MenuBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
@@ -40,27 +42,54 @@ fn get_settings(state: tauri::State<SettingsState>) -> AppSettings {
 }
 
 #[tauri::command]
+fn get_input_state(service: tauri::State<DeviceService>) -> InputState {
+    service.input_state()
+}
+
+#[tauri::command]
+fn get_refresh_state(service: tauri::State<DeviceService>) -> RefreshState {
+    service.refresh_state()
+}
+
+#[tauri::command]
 fn update_settings(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
     state: tauri::State<SettingsState>,
-    settings: AppSettings,
+    patch: SettingsPatch,
 ) -> Result<AppSettings, String> {
-    let settings = settings.normalized();
-    let launch_changed = state
-        .0
-        .lock()
-        .map_err(|_| "设置状态锁已损坏".to_string())?
-        .launch_at_login
-        != settings.launch_at_login;
-    apply_window_settings(&window, &settings)?;
-    if launch_changed {
-        sync_autostart(&app, settings.launch_at_login)?;
+    // Hold the lock across merge, side effects, persistence and publication.
+    let mut current = state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())?;
+    let next = patch.apply(&current);
+    let window = app.get_webview_window("main").ok_or("找不到悬浮窗")?;
+    let result = (|| {
+        apply_window_settings(&window, &next)?;
+        if current.launch_at_login != next.launch_at_login {
+            sync_autostart(&app, next.launch_at_login)?;
+        }
+        storage::save_settings(&next)
+    })();
+    if let Err(error) = result {
+        let _ = apply_window_settings(&window, &current);
+        if current.launch_at_login != next.launch_at_login {
+            let _ = sync_autostart(&app, current.launch_at_login);
+        }
+        return Err(error);
     }
-    storage::save_settings(&settings)?;
-    *state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())? = settings.clone();
-    let _ = app.emit("settings-changed", &settings);
-    Ok(settings)
+    *current = next.clone();
+    let _ = app.emit("settings-changed", &next);
+    Ok(next)
+}
+
+#[tauri::command]
+fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
+    show_window(&app, "settings")
+}
+
+fn show_window(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let window = app.get_webview_window(label).ok_or("找不到窗口")?;
+    window.show().map_err(|e| e.to_string())?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -74,11 +103,14 @@ fn unlock_window_impl(app: &tauri::AppHandle) -> Result<AppSettings, String> {
         .ok_or_else(|| "找不到主窗口".to_string())?;
     let state = app.state::<SettingsState>();
     let mut settings = state.0.lock().map_err(|_| "设置状态锁已损坏".to_string())?;
-    settings.click_through = false;
+    // Unlock must still work when persistence fails.
     window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    storage::save_settings(&settings)?;
+    settings.click_through = false;
+    if let Err(error) = storage::save_settings(&settings) {
+        eprintln!("解除穿透后保存设置失败：{error}");
+    }
     let result = settings.clone();
     let _ = app.emit("settings-changed", &result);
     Ok(result)
@@ -116,6 +148,17 @@ fn open_repository() -> Result<(), String> {
         .map_err(|error| format!("无法打开 GitHub 仓库：{error}"))
 }
 
+fn toggle_overlay(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("找不到悬浮窗")?;
+    if window.is_visible().map_err(|e| e.to_string())?
+        && !window.is_minimized().map_err(|e| e.to_string())?
+    {
+        window.hide().map_err(|e| e.to_string())
+    } else {
+        restore_interactive_window(app)
+    }
+}
+
 fn apply_window_settings(
     window: &tauri::WebviewWindow,
     settings: &AppSettings,
@@ -144,19 +187,28 @@ pub fn run() {
     let setup_settings = initial_settings.clone();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
         .manage(SettingsState(Mutex::new(initial_settings)))
-        .on_menu_event(|app, event| {
-            // Handle the emergency unlock natively. A click-through window must
-            // not rely solely on its WebView/JavaScript callback to become
-            // interactive again.
-            if event.id().as_ref() == "unlock" {
-                if let Err(message) = restore_interactive_window(app) {
-                    eprintln!("解除鼠标穿透失败：{message}");
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if window.label() == "main" {
+                    window.app_handle().exit(0);
+                } else if let Err(error) =
+                    window.emit_to("settings", "settings-close-requested", ())
+                {
+                    eprintln!("无法请求关闭配置窗：{error}");
                 }
             }
         })
@@ -168,6 +220,52 @@ pub fn run() {
                 app.handle().clone(),
                 initial_device_state,
             ));
+            let menu = MenuBuilder::new(app)
+                .text("toggle", "显示 / 隐藏悬浮窗")
+                .text("unlock", "解除鼠标穿透")
+                .text("settings", "打开配置")
+                .text("refresh", "刷新 VIA 键位")
+                .separator()
+                .text("quit", "退出 viaecho")
+                .build()?;
+            let mut tray = TrayIconBuilder::with_id("via-echo-tray")
+                .menu(&menu)
+                .tooltip("viaecho · DOIO KB16")
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| {
+                    let result = match event.id().as_ref() {
+                        "toggle" => toggle_overlay(app),
+                        "unlock" => restore_interactive_window(app),
+                        "settings" => show_window(app, "settings"),
+                        "refresh" => app.state::<DeviceService>().refresh(),
+                        "quit" => {
+                            app.exit(0);
+                            Ok(())
+                        }
+                        _ => Ok(()),
+                    };
+                    if let Err(error) = result {
+                        eprintln!("托盘操作失败：{error}");
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if matches!(
+                        event,
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        }
+                    ) {
+                        if let Err(error) = restore_interactive_window(tray.app_handle()) {
+                            eprintln!("恢复悬浮窗失败：{error}");
+                        }
+                    }
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -175,11 +273,14 @@ pub fn run() {
             get_initial_state,
             refresh_keymap,
             get_settings,
+            get_refresh_state,
+            get_input_state,
+            open_settings,
             update_settings,
             unlock_window,
             open_repository,
             exit_app,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running VIA Echo");
+        .expect("error while running viaecho");
 }
