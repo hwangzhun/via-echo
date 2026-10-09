@@ -92,3 +92,15 @@ npm run tauri dev
 Logo 的 [SVG 文件](logo/viaecho.svg) 和 [Illustrator 原稿](logo/viaecho.ai) 保存在 `logo/`。修改 SVG 后运行 `npm run icons`，即可更新应用与托盘图标；开发和构建命令也会自动检查并生成图标。
 
 仓库保留前端和 Rust 源码、依赖锁文件、设备布局、logo 与应用图标、文档预览图，以及配套固件的源码和刷写文件。`node_modules/`、`dist/`、`src-tauri/target/`、自动生成的 Tauri schema、TypeScript 构建缓存、环境配置和本地 `release/` 产物由 `.gitignore` 排除。应用可执行文件与安装包可在发布时上传至 GitHub Releases。
+
+## 许可证
+
+Copyright (c) 2026 hwangzhun。
+
+viaecho 桌面应用及本项目原创文档和素材采用 **GNU General Public License v3.0（仅第 3 版，`GPL-3.0-only`）**，完整条款见 [LICENSE](LICENSE)。第三方代码和素材仍遵循各自的许可证。
+
+允许学习、修改、分享和商业使用，包括收费销售。分发原版或二次开发后的程序时，必须保留原有版权和许可声明，修改版应标明修改及日期，并按 GPLv3 的要求向程序接收者提供完整对应源码，包括修改部分及必要的构建、安装脚本。受 GPL 覆盖的衍生程序必须整体按 GPLv3 发布，接收者仍享有修改和再分发的权利。软件按原样提供，不附带担保；具体权利和义务以许可证全文为准。
+
+配套 QMK 固件的许可范围见 [固件说明](firmware/README.md#许可证)。固件源码保留原有的 `GPL-2.0-or-later` 声明及上游作者署名，不受桌面应用的 `GPL-3.0-only` 限定替代。
+
+本次协议变更不追溯撤销历史版本的授权。此前已按 MIT 发布的版本（包括 v0.2.0 和 v0.3.0）仍可按其发布时的 MIT 许可证使用；相应条款见各历史版本中的 `LICENSE`。

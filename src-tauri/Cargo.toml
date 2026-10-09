@@ -3,6 +3,7 @@ name = "viaecho"
 version = "0.3.0"
 description = "DOIO KB16 floating keymap companion"
 authors = ["viaecho contributors"]
+license = "GPL-3.0-only"
 edition = "2021"
 rust-version = "1.70"
 

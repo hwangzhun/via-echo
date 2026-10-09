@@ -87,3 +87,11 @@ qmk_firmware/keyboards/doio/kb16/keymaps/via_echo
 如果需要恢复，先根据 PCB 版本构建或取得对应的官方 `doio/kb16/rev1` 或 `doio/kb16/rev2` 固件，然后用相同的引导模式刷入。恢复后再通过 VIA 导入之前保存的配置。
 
 电脑端与固件之间的数据格式见 [`TELEMETRY_PROTOCOL.md`](TELEMETRY_PROTOCOL.md)。
+
+## 许可证
+
+本目录中的 QMK keymap 和配置源码保留 **`GPL-2.0-or-later`** 许可，GPLv2 全文见 [LICENSE](LICENSE)，GPLv3 全文见 [根目录 LICENSE](../LICENSE)。源码中的 DOIO、HorrorTroll 和 viaecho contributors 版权声明应予保留。
+
+QMK 及其依赖仍遵循各自的许可证。按照 [QMK 官方许可说明](https://docs.qmk.fm/hardware_keyboard_guidelines#license)，AVR 固件可按 GPLv2 或 GPLv3 分发；ARM 固件因 ChibiOS 的许可要求，应按 GPLv3 分发。因此，rev2 固件二进制的分发须遵循 GPLv3。
+
+分发固件二进制时，应按适用的 GPL 条款提供完整对应源码及必要的构建材料，包括与该二进制对应的 QMK 和依赖源码，而不只是本目录中的 keymap。桌面应用的许可变更不替代固件及上游依赖的许可，也不附加禁止商业使用的限制。
