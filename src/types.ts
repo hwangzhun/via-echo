@@ -39,7 +39,7 @@ export interface InputState {
 }
 
 export interface AppSettings {
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "y2k" | "spaceAge";
   accentColor: string;
   opacity: number;
   autoFade: boolean;

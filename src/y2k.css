@@ -1,0 +1,173 @@
+/* Archive 2002: machined aluminum, graphite plastic and a cyan vacuum display.
+   Scoped to the skin so the user's normal palette is preserved on exit. */
+.theme-y2k {
+  --accent: #73e4ff;
+  --accent-rgb: 115, 228, 255;
+  --accent-strong: #36aaca;
+  --accent-soft: #c4f6ff;
+  --accent-mid: #7bddf5;
+  --accent-deep: #23687c;
+  --accent-contrast: #092b37;
+  --text: #e0e5e8;
+  --muted: #a8b4bb;
+  --surface: #30363b;
+  --surface-soft: #20262b;
+  --line: #11171b;
+  --window-radius: 12px;
+  --titlebar-height: 46px;
+  --metal: linear-gradient(180deg, #f2f4f4 0%, #c1c7cc 9%, #919ba4 47%, #d9dfe2 49%, #a1aab2 100%);
+  --brushed: repeating-linear-gradient(0deg, #ffffff07 0 1px, #00000009 1px 2px, transparent 2px 4px);
+  font-family: Tahoma, "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif;
+  color: var(--text);
+}
+.theme-y2k.app-shell, .theme-y2k.configuration, .theme-y2k.loading-shell {
+  border: 1px solid #151b20;
+  background: var(--brushed), linear-gradient(110deg, #a6afb7, #e4e8ea 22%, #8b959f 50%, #c1c9ce 78%, #7c8790);
+  box-shadow: inset 0 0 0 1px #edf2f5, inset 0 0 0 3px #69747e, inset 0 0 0 4px #e8edef, inset 0 -6px 9px #26333e80;
+}
+.theme-y2k.app-shell { grid-template-rows: var(--titlebar-height) 65px minmax(0, 1fr) 31px; padding: 0 12px 6px; gap: 0; }
+/* Apply the configured opacity to the complete metallic chassis. */
+.theme-y2k.app-shell { opacity: var(--window-opacity); }
+.theme-y2k.app-shell.idle-faded { opacity: var(--faded-opacity); }
+.theme-y2k .topbar { color: #202b34; text-shadow: 0 1px #ffffffa6; gap: 8px; }
+.theme-y2k .brand { gap: 7px; }
+.theme-y2k .brand-name { font-style: italic; font-weight: 600; letter-spacing: -.5px; }
+.theme-y2k .status-copy, .theme-y2k .titlebar-context, .theme-y2k .current-layer, .theme-y2k .current-layer small { color: #35434f; }
+.theme-y2k .window-actions { gap: 5px; }
+.theme-y2k .window-actions button {
+  width: 26px; height: 24px; color: #27313a; border: 1px solid #58646e; border-radius: 4px;
+  background: var(--metal); box-shadow: inset 0 0 0 1px #eff5f780, 0 1px 1px #0005;
+}
+.theme-y2k .window-actions button:hover { color: #082b38; background: linear-gradient(#e9fbff, #7cc8df); }
+.theme-y2k .window-actions .close-button:hover { color: #fff; background: linear-gradient(#d58d87, #803a38); }
+.theme-y2k .status-dot { border: 1px solid #25313c; box-shadow: 0 0 0 1px #edf5fa80, inset 0 1px 1px #ffffffa0; }
+.theme-y2k .status-dot.connected { box-shadow: 0 0 0 1px #354e4260, 0 0 5px #45b97c, inset 0 1px 1px #d0ffe7; }
+.y2k-display {
+  position: relative; display: flex; align-items: center; gap: 16px; min-width: 0; overflow: hidden;
+  height: 61px; padding: 7px 15px; border: 3px solid #1c2329; border-radius: 5px;
+  color: #78def5; background: repeating-linear-gradient(0deg, #00000012 0 1px, transparent 1px 3px), linear-gradient(110deg, #07171f, #133440 48%, #081b24);
+  box-shadow: 0 1px 0 #f2f7fa, 0 -1px 0 #6d7c87, inset 0 2px 7px #000, inset 0 0 0 1px #3e5964;
+  font: 10px/1.25 "Lucida Console", "Courier New", monospace; text-shadow: 0 0 5px #5edcfa66;
+}
+.y2k-display::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: linear-gradient(168deg, #b9e9ff0c 0 43%, transparent 44%); }
+.lcd-layer { display: flex; align-items: center; gap: 8px; }
+.lcd-layer > span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9px; letter-spacing: 1px; }
+.lcd-layer > div { display: flex; gap: 4px; }
+.lcd-digit { width: 18px; height: 36px; fill: #73e4ff0d; }
+.lcd-digit .lit { fill: #96edff; filter: drop-shadow(0 0 1px #73e4ff99); }
+.lcd-info { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.lcd-info > strong { font-size: 13px; letter-spacing: 3px; white-space: nowrap; }
+.lcd-info > strong span { color: #38748a; }
+.lcd-info > small, .lcd-count > small { font-size: 9px; letter-spacing: .7px; color: #80b8c6; white-space: nowrap; }
+.lcd-mode { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 1px; }
+.lcd-mode i { width: 4px; height: 4px; background: #386372; }
+.lcd-mode i.on { background: #91edff; box-shadow: 0 0 5px #73e4ff; }
+.lcd-input { display: grid; justify-items: center; gap: 3px; font-size: 8px; letter-spacing: 1px; }
+.lcd-matrix { display: grid; grid-template-columns: repeat(4, 7px); gap: 2px; }
+.lcd-matrix i { height: 4px; background: #4fa5bd25; border: 1px solid #73c7dd19; }
+.lcd-matrix i.on { background: #99edff; box-shadow: 0 0 3px #73e4ff; }
+.lcd-count { display: grid; text-align: center; gap: 1px; padding-left: 12px; border-left: 1px solid #47889b50; }
+.lcd-count > span { font-size: 8px; letter-spacing: 2px; }
+.lcd-count b { font-size: 21px; font-weight: 400; line-height: 1; }
+.theme-y2k .workspace {
+  margin-top: 5px; padding: 13px 20px 15px; border: 3px solid #434e58; border-radius: 7px;
+  background: radial-gradient(circle at 6px 6px, #29343d 0 1px, #acb8c1 2px, #12191f 3px, transparent 4px), radial-gradient(circle at calc(100% - 6px) 6px, #29343d 0 1px, #acb8c1 2px, #12191f 3px, transparent 4px), radial-gradient(circle at 6px calc(100% - 6px), #29343d 0 1px, #acb8c1 2px, #12191f 3px, transparent 4px), radial-gradient(circle at calc(100% - 6px) calc(100% - 6px), #29343d 0 1px, #acb8c1 2px, #12191f 3px, transparent 4px), repeating-linear-gradient(0deg, #ffffff03 0 1px, transparent 1px 3px), linear-gradient(125deg, #333b43, #191f25 70%);
+  box-shadow: 0 1px 0 #edf1f4, 0 -1px 0 #5a6770, inset 0 0 0 1px #0c1319, inset 0 4px 10px #0009;
+}
+.theme-y2k .keycap {
+  border: 1px solid #0e141a; border-radius: 5px; color: #202b35;
+  background: var(--brushed), linear-gradient(180deg, #f0f2f3 0%, #c3cbd2 8%, #9ba6af 47%, #7e8b97 49%, #acb6bf 94%, #d7dfe5 100%);
+  box-shadow: 0 3px 0 #46525e, 0 4px 0 #0a1016, 0 5px 5px #0009, inset 0 0 0 1px #edf3f79c;
+  text-shadow: 0 1px #f0f7fc8c;
+}
+.theme-y2k .keycap::after { position: absolute; content: ""; bottom: 4px; width: 10px; height: 2px; background: #3a4a56; box-shadow: 0 1px #f3f9fc60; }
+.theme-y2k .keycap.empty { color: #3a4650; }
+.theme-y2k .keycap.pressed {
+  color: #062d3c; background: linear-gradient(#c4faff, #5abbd7 47%, #2886a3 49%, #8cddf0);
+  box-shadow: 0 1px 0 #0b2635, 0 0 12px #5fdcff70, inset 0 0 0 1px #bff9ff;
+}
+.theme-y2k .keycap.pressed::after { background: #dbfcff; box-shadow: 0 0 5px #88eeff; }
+.theme-y2k .binding-label { padding-bottom: 3px; }
+.theme-y2k .encoder-unit::before {
+  position: absolute; content: ""; inset: -3%; border: 1px solid #050a0e; border-radius: 50%;
+  background: repeating-conic-gradient(from -4deg, #a8bbc480 0deg 2deg, #171e24 2deg 14deg);
+  box-shadow: 0 1px 0 #ffffff30;
+}
+.theme-y2k .encoder-knob {
+  inset: 7%; color: #273440; border: 2px solid #bcc5cb;
+  background: radial-gradient(circle at 50% 50%, #bac3cb 0 48%, transparent 49%), conic-gradient(from 25deg, #f7fbff, #7c8994 14%, #d5dce2 28%, #f5f8fc 44%, #7b8994 64%, #d4dce4 82%, #f7fbff);
+  box-shadow: 0 3px 0 #566471, 0 5px 0 #0a1116, 0 7px 9px #000b, inset 0 0 0 1px #f6fbff, inset 0 0 0 4px #65788770;
+  text-shadow: 0 1px #fff9;
+}
+.theme-y2k .encoder-knob::before { position: absolute; content: ""; inset: 17%; border-radius: 50%; background: var(--brushed), linear-gradient(130deg, #e7edf0, #909da8); box-shadow: 0 0 0 1px #586a7860, inset 0 1px #fff9; }
+.theme-y2k .encoder-knob i { z-index: 1; top: 7%; height: 17%; width: 3px; background: #85ebff; border: 1px solid #2c6c80; border-radius: 1px; box-shadow: 0 0 5px #52d7ff; }
+.theme-y2k .encoder-knob small { position: relative; z-index: 1; }
+.theme-y2k .encoder-knob.pressed { border-color: #8bedff; box-shadow: 0 1px 0 #17232c, 0 0 14px #73e4ff70, inset 0 0 0 2px #267d96; }
+.theme-y2k .encoder-knob.pressed::before { background: linear-gradient(130deg, #c7faff, #60bbd0); }
+.theme-y2k .encoder-direction { color: #bccbd3; text-shadow: 0 1px #000; }
+.theme-y2k .encoder-direction.flash { color: #9dedff; }
+.theme-y2k .overlay-footer { color: #293944; text-shadow: 0 1px #eff7fca6; gap: 6px; }
+.theme-y2k .keyboard-model { font-size: 11px; }
+.theme-y2k .overlay-footer::after { content: "2002 • METALLIC"; font: 9px/1 "Lucida Console", monospace; letter-spacing: 1px; }
+.theme-y2k .layer-tabs { padding: 3px; gap: 4px; border: 1px solid #141e27; border-radius: 4px; background: #26323d; box-shadow: 0 1px #eaf7ff88, inset 0 1px 4px #0008; }
+.theme-y2k .layer-tabs button { border: 1px solid #6e7b85; border-radius: 2px; color: #26343f; background: var(--metal); box-shadow: inset 0 0 0 1px #f3faff44; text-shadow: 0 1px #fff8; }
+.theme-y2k .layer-tabs button.active { color: #a0f0ff; background: linear-gradient(#0b1a23, #264552); border-color: #07131c; box-shadow: inset 0 1px 4px #000, 0 0 4px #73e4ff33; text-shadow: 0 0 5px #73e4ff88; }
+.theme-y2k.configuration { padding: 0 5px 5px; grid-template-columns: 155px minmax(0, 1fr); }
+.theme-y2k.configuration > .topbar { padding: 0 9px; border-bottom: 1px solid #55616b; }
+.theme-y2k .config-sidebar { margin: 0; padding: 18px 10px; background: var(--brushed), linear-gradient(90deg, #353f48, #252d34); border: 1px solid #141c23; box-shadow: inset 1px 0 #ffffff20; }
+.theme-y2k .sidebar-heading { letter-spacing: 3px; }
+.theme-y2k .config-sidebar nav { gap: 7px; }
+.theme-y2k .config-sidebar nav button { padding: 10px 8px; border: 1px solid #111b22; border-radius: 4px; background: linear-gradient(#4b5660, #303b45 48%, #263039 49%, #343f49); box-shadow: inset 0 1px #b4c9d53b, 0 1px #ffffff14; color: #cfdae1; text-shadow: 0 1px #0009; }
+.theme-y2k .config-sidebar nav button.active { border-color: #06141d; color: #97eeff; background: linear-gradient(#10212b, #213d4c); box-shadow: inset 0 2px 5px #0009, 0 1px #ffffff26; }
+.theme-y2k .config-sidebar nav button.active::after { content: ""; margin-left: auto; flex-shrink: 0; width: 4px; height: 12px; background: #78dfff; box-shadow: 0 0 6px #65dcff; }
+.theme-y2k .sidebar-device { padding-inline: 5px; }
+.theme-y2k .config-content { padding: 22px; border: 1px solid #172029; border-left: 0; background: repeating-linear-gradient(0deg, #ffffff02 0 1px, transparent 1px 3px), #222a31; box-shadow: inset 0 2px 6px #0006; }
+.theme-y2k .page-heading h1 { color: #dbe6ed; text-shadow: 0 2px 1px #000; }
+.theme-y2k .page-heading small { font: 10px/1.4 "Lucida Console", monospace; text-transform: uppercase; color: #84b6c9; letter-spacing: 2px; }
+.theme-y2k .keyboard-card, .theme-y2k .inspector, .theme-y2k .preference-card, .theme-y2k .confirm-dialog { border: 1px solid #0e171e; border-radius: 5px; background: linear-gradient(120deg, #374149, #2a3239); box-shadow: inset 0 1px #b7c6d136, 0 1px #c2d3dd26; }
+.theme-y2k .card-caption { padding: 12px; border-bottom: 1px solid #131d25; background: var(--brushed), linear-gradient(#515d67, #303c46); text-shadow: 0 1px #0008; }
+.theme-y2k .label-workspace { min-height: 380px; }
+.theme-y2k .keyboard-card > .card-caption { display: none; }
+.theme-y2k .keyboard-card .y2k-display { flex-shrink: 0; margin: 10px 10px 0; padding-inline: 9px; gap: 10px; }
+.theme-y2k .keyboard-card .lcd-info > strong { font-size: 11px; letter-spacing: 2px; }
+.theme-y2k .keyboard-card .lcd-count { display: none; }
+.theme-y2k .config-keyboard { margin: 10px; padding: 12px 10px; }
+.theme-y2k .keyboard-help { margin: 5px 10px 12px; }
+.theme-y2k .name-field input { border: 1px solid #0c151c; border-radius: 3px; color: #9be9fa; background: #12222c; box-shadow: inset 0 2px 4px #0008, 0 1px #ffffff30; }
+.theme-y2k.configuration button:not(:where(.keycap, .encoder-knob, .encoder-direction, .layer-tabs button, .config-sidebar button, .theme-setting button, .window-actions button)), .theme-y2k .loading-content button { border-radius: 3px; border: 1px solid #111b23; color: #243540; background: var(--metal); box-shadow: inset 0 0 0 1px #f7fcff80, 0 2px 2px #0005; text-shadow: 0 1px #ffffff80; }
+.theme-y2k.configuration button.primary { color: #072935; background: linear-gradient(#c8f7ff, #6ec9e1 48%, #4996b1 49%, #88d8e9); }
+.theme-y2k.configuration button.text-button { background: transparent; color: #a7bac6; box-shadow: none; border-color: transparent; text-shadow: none; }
+.theme-y2k button:active:not(:disabled) { filter: brightness(.9); }
+.theme-y2k .theme-setting > div { border: 1px solid #0d161d; border-radius: 4px; background: #1a242c; box-shadow: inset 0 2px 3px #0006, 0 1px #ffffff24; }
+.theme-y2k .theme-setting button { border-radius: 2px; }
+.theme-y2k .theme-setting button.active { color: #15313e; background: var(--metal); box-shadow: inset 0 0 0 1px #f5faff66; }
+.theme-y2k .toggle-setting i { height: 18px; border: 1px solid #0d1922; border-radius: 3px; background: #172029; box-shadow: inset 0 2px 3px #0008, 0 1px #ffffff28; }
+.theme-y2k .toggle-setting i::after { top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 1px; background: var(--metal); box-shadow: 0 1px 2px #000; }
+.theme-y2k .toggle-setting input:checked + i { background: #215163; box-shadow: inset 0 1px 3px #0008, 0 0 4px #73e4ff30; }
+.theme-y2k .toggle-setting input:checked + i::after { left: 14px; background: linear-gradient(#d9faff, #70c6dc); }
+.theme-y2k input[type="range"] { appearance: none; height: 6px; border: 1px solid #0c1720; border-radius: 2px; background: #14212a; box-shadow: 0 1px #c4d3dd3d, inset 0 1px 3px #000; }
+.theme-y2k input[type="range"]::-webkit-slider-thumb { appearance: none; width: 15px; height: 22px; border: 1px solid #1c2d3a; border-radius: 3px; background: linear-gradient(90deg, transparent 42%, #38647b 43% 53%, transparent 54%), var(--metal); box-shadow: inset 0 0 0 1px #f3fbff90, 0 2px 3px #0008; cursor: ew-resize; }
+.theme-y2k input[type="range"]::-moz-range-thumb { width: 15px; height: 22px; border: 1px solid #1c2d3a; border-radius: 3px; background: var(--metal); cursor: ew-resize; }
+.theme-y2k .status-pill { border: 1px solid #101920; border-radius: 3px; box-shadow: inset 0 1px 3px #0008, 0 1px #ffffff20; }
+.theme-y2k .about-logo { border: 3px ridge #b3bcc3; border-radius: 5px; }
+.theme-y2k .loading-content { color: #26343e; }
+/* The collectible's small product plate also previews the skin in normal themes. */
+.skin-archive { display: flex; align-items: center; gap: 15px; margin: 14px 0 18px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); }
+.skin-archive > div:last-child { display: grid; gap: 4px; }
+.skin-archive small { font: 9px/1.4 "Lucida Console", monospace; letter-spacing: 1px; color: var(--muted); }
+.skin-archive strong { font-size: var(--text-body); }
+.skin-archive p { margin: 0; font-size: var(--text-caption); color: var(--muted); }
+.skin-archive-art { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: space-around; width: 116px; height: 70px; border: 3px ridge #c4ced6; border-radius: 5px; color: #8bebff; background: linear-gradient(#c7cfd5 0 20%, #2a333c 21% 86%, #a9b5be 87%); box-shadow: 0 3px 5px #0004; }
+.skin-archive-art > span { position: absolute; top: 0; left: 4px; color: #263847; font: bold 8px/11px Tahoma, sans-serif; letter-spacing: 1px; }
+.skin-archive-art b { padding: 3px 8px; border: 2px inset #6a7b89; border-radius: 2px; background: #102732; font: 22px/1 "Courier New", monospace; text-shadow: 0 0 5px #74e5ff; }
+.skin-archive-art i { width: 31px; height: 31px; border: 3px ridge #c4d0da; border-radius: 50%; background: conic-gradient(#ecf7ff, #8598a7, #e6f2fa, #758895, #ecf7ff); box-shadow: 0 3px 0 #0b1621; }
+.theme-y2k .skin-archive { border-radius: 3px; box-shadow: inset 0 1px 4px #0005, 0 1px #ffffff20; }
+@media (max-width: 850px) {
+  .theme-y2k.configuration { grid-template-columns: 142px minmax(0, 1fr); }
+  .theme-y2k .config-content { padding: 18px 15px; }
+  .theme-y2k .keyboard-card .lcd-input { display: none; }
+}
+@media (max-width: 520px) {
+  .theme-y2k .overlay-footer::after { display: none; }
+  .theme-y2k .y2k-display { gap: 12px; padding-inline: 10px; }
+}

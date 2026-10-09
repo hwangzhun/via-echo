@@ -172,6 +172,9 @@ pub enum ThemeMode {
     #[default]
     Dark,
     Light,
+    Y2k,
+    #[serde(rename = "spaceAge")]
+    SpaceAge,
 }
 
 impl Default for AppSettings {
@@ -254,6 +257,45 @@ pub struct EncoderRect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn metallic_skin_round_trips_without_changing_existing_preferences() {
+        let initial = AppSettings {
+            accent_color: "#F29A67".into(),
+            ..Default::default()
+        };
+        let patch: SettingsPatch = serde_json::from_str(r#"{"theme":"y2k"}"#).unwrap();
+        let metallic = patch.apply(&initial);
+        assert_eq!(metallic.theme, ThemeMode::Y2k);
+        let saved = serde_json::to_string(&metallic).unwrap();
+        let loaded: AppSettings = serde_json::from_str(&saved).unwrap();
+        assert_eq!(loaded, metallic);
+        let reset: SettingsPatch = serde_json::from_str(r#"{"theme":"dark"}"#).unwrap();
+        assert_eq!(reset.apply(&loaded), initial);
+    }
+
+    #[test]
+    fn space_age_round_trips_and_preserves_all_other_preferences() {
+        let initial = AppSettings {
+            accent_color: "#F29A67".into(),
+            opacity: 0.7,
+            custom_labels: HashMap::from([("key:0:0:0".into(), "复制".into())]),
+            ..Default::default()
+        };
+        let patch: SettingsPatch = serde_json::from_str(r#"{"theme":"spaceAge"}"#).unwrap();
+        let themed = patch.apply(&initial);
+        assert_eq!(themed.theme, ThemeMode::SpaceAge);
+        let saved = serde_json::to_value(&themed).unwrap();
+        assert_eq!(saved["theme"], "spaceAge");
+        let loaded: AppSettings = serde_json::from_value(saved).unwrap();
+        assert_eq!(loaded, themed);
+        for (wire, mode) in [("dark", ThemeMode::Dark), ("light", ThemeMode::Light), ("y2k", ThemeMode::Y2k)] {
+            let mut expected = initial.clone();
+            expected.theme = mode;
+            let patch: SettingsPatch = serde_json::from_value(serde_json::json!({"theme": wire})).unwrap();
+            assert_eq!(patch.apply(&loaded), expected);
+        }
+    }
 
     #[test]
     fn patches_preserve_other_fields_and_merge_individual_labels() {

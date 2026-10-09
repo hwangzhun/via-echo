@@ -66,7 +66,7 @@ h2 { font-size: var(--text-heading); line-height: var(--line-label); font-weight
   background: radial-gradient(circle at 70% -30%, rgba(var(--accent-rgb), .14), transparent 45%), var(--panel);
   box-shadow: inset 0 1px rgba(255,255,255,.04);
 }
-.app-shell { display: grid; grid-template-rows: var(--titlebar-height) minmax(0,1fr) 36px; padding: 0 14px 10px; transition: opacity 420ms ease; }
+.app-shell { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: var(--titlebar-height) minmax(0,1fr) 36px; padding: 0 14px 10px; transition: opacity 420ms ease; }
 .app-shell.idle-faded { opacity: var(--faded-opacity); }
 .loading-shell { display: grid; grid-template-rows: var(--titlebar-height) minmax(0,1fr); padding: 0 14px; }
 .loading-content { display: grid; place-content: center; text-align: center; padding: 20px; overflow-wrap: anywhere; color: var(--muted); }
@@ -168,9 +168,15 @@ h2 { font-size: var(--text-heading); line-height: var(--line-label); font-weight
 .preference-card h2 { margin-top: 0; }
 .preference-card .range-setting { margin-top: 18px; }
 .theme-setting, .color-setting, .toggle-setting { display: flex; align-items: center; justify-content: space-between; min-height: 46px; gap: 12px; }
-.theme-setting > div { display: flex; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-soft); }
+.theme-setting { flex-wrap: wrap; }
+.theme-setting > div { flex-wrap: wrap; display: flex; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-soft); }
 .theme-setting button { padding: 5px 10px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; }
 .theme-setting button.active { color: var(--accent-contrast); background: var(--accent); }
+.skin-choices { display: grid; gap: 12px; }
+.skin-choices .skin-archive { margin: 0; }
+.skin-choices .skin-archive.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+.skin-choices .skin-select { justify-self: start; margin-top: 6px; }
+.configuration .skin-choices .skin-select[aria-pressed="true"] { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
 .color-setting, .toggle-setting { border-top: 1px solid var(--line); }
 .color-setting > div { display: flex; align-items: center; gap: 8px; }
 .color-setting input { width: 30px; height: 26px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: transparent; cursor: pointer; }

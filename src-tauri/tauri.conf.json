@@ -1,6 +1,6 @@
 {
   "productName": "viaecho",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identifier": "com.viaecho.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -15,9 +15,9 @@
         "label": "main",
         "title": "viaecho",
         "width": 560,
-        "height": 400,
-        "minWidth": 500,
-        "minHeight": 360,
+        "height": 420,
+        "minWidth": 560,
+        "minHeight": 420,
         "resizable": true,
         "decorations": false,
         "transparent": true,

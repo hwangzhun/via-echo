@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WindowTitlebar } from "./WindowTitlebar";
+import { Y2kDisplay } from "./Y2kDisplay";
+import { SpaceAgeDisplay } from "./SpaceAgeDisplay";
 import { KeyboardIcon, SlidersHorizontalIcon, InfoIcon, CursorClickIcon, ArrowSquareOutIcon } from "./icons";
 import packageInfo from "../package.json";
 import { Keyboard, LayerTabs, type Selection } from "./Keyboard";
@@ -89,6 +91,8 @@ export function SettingsWindow({ state }: { state: AppState }) {
         <div className="preview-heading"><LayerTabs layer={layer} onChange={(next) => { if (next !== layer) guard(() => { clearSelection(); setLayer(next); }); }} /><span>{device.status === "connected" ? `键盘当前 L${device.activeLayer + 1} · ${layer === device.activeLayer ? "实时反馈" : "正在预览"}` : device.layers.length ? "缓存 / 手动预览" : "尚未读取键位"}</span></div>
         <div className="label-workspace">
           <section className="keyboard-card"><div className="card-caption"><strong>DOIO KB16</strong><span>L{layer + 1} · 显示名称</span></div>
+            {settings.theme === "y2k" && <Y2kDisplay device={device} input={input} layer={layer} layout={layout} />}
+            {settings.theme === "spaceAge" && <SpaceAgeDisplay device={device} input={input} layer={layer} layout={layout} />}
             <div className="config-keyboard workspace">{layout && <Keyboard layout={layout} device={device} settings={settings} input={input} layer={layer} selected={selection?.id} onSelect={device.layers.length ? (next) => { if (next.id !== selection?.id) guard(() => select(next)); } : undefined} />}</div>
             <p className="keyboard-help">{device.layers.length ? "点击键帽、旋钮或下方的旋转方向进行编辑" : "连接键盘后自动读取；已有缓存时可离线编辑"}</p>
           </section>
@@ -106,9 +110,16 @@ export function SettingsWindow({ state }: { state: AppState }) {
       </>}
       {page === "appearance" && <div className="preferences">
         <section className="preference-card"><h2>外观</h2>
-          <div className="theme-setting"><span>界面皮肤</span><div>{(["dark", "light"] as const).map((theme) => <button key={theme} className={settings.theme === theme ? "active" : ""} onClick={() => void patch({ theme })}>{theme === "dark" ? "深色" : "亮色"}</button>)}</div></div>
-          <div className="color-setting"><label htmlFor="accent">主题强调色</label><div><input id="accent" type="color" value={settings.accentColor} onChange={(e) => void patch({ accentColor: e.target.value })} /><code>{settings.accentColor}</code><button onClick={() => void patch({ accentColor: DEFAULT_SETTINGS.accentColor })}>默认</button></div></div>
+          <div className="theme-setting"><span>界面颜色</span><div role="group" aria-label="界面颜色">{(["dark", "light"] as const).map((theme) => <button key={theme} className={settings.theme === theme ? "active" : ""} aria-pressed={settings.theme === theme} onClick={() => void patch({ theme })}>{theme === "dark" ? "深色" : "亮色"}</button>)}</div></div>
+          {settings.theme === "spaceAge" ? <p className="info-note">Space Age 使用固定冰蓝与青色光效；切回深色或亮色后恢复你的强调色。</p> : settings.theme === "y2k" ? <p className="info-note y2k-color-note">Metallic 皮肤使用经典冰蓝背光；切回深色或亮色后恢复你的强调色。</p> : <div className="color-setting"><label htmlFor="accent">主题强调色</label><div><input id="accent" type="color" value={settings.accentColor} onChange={(e) => void patch({ accentColor: e.target.value })} /><code>{settings.accentColor}</code><button onClick={() => void patch({ accentColor: DEFAULT_SETTINGS.accentColor })}>默认</button></div></div>}
           <Range label="悬浮窗透明度" value={settings.opacity} min={.35} max={1} step={.05} format={percent} onChange={(opacity) => void patch({ opacity })} />
+        </section>
+        <section className="preference-card"><h2 id="y2k-skins-heading">Y2K 皮肤</h2>
+          <p className="muted">选择一款复古皮肤；切换上方亮色或深色即可回到常规界面。</p>
+          <div className="skin-choices" role="group" aria-labelledby="y2k-skins-heading">
+            <div className={`skin-archive ${settings.theme === "y2k" ? "active" : ""}`}><div className="skin-archive-art" aria-hidden="true"><span>Y2K</span><i /><b>02</b></div><div><small>ARCHIVE SERIES / 2002</small><strong>Metallic · 金属拟物</strong><p>拉丝铝、镀铬旋钮与冰蓝 LCD。回到桌面播放器的黄金年代。</p><button className="skin-select" aria-pressed={settings.theme === "y2k"} onClick={() => void patch({ theme: "y2k" })}>Y2K Metallic</button></div></div>
+            <div className={`skin-archive space-age-preview ${settings.theme === "spaceAge" ? "active" : ""}`}><div className="space-age-preview-art" aria-hidden="true"><span>SPACE AGE / 2001</span><i /><b>01</b></div><div><small>ORBITAL SERIES / 2001</small><strong>Space Age · 千禧太空舱</strong><p>珍珠白机壳、透明蓝亚克力与行星旋钮。驶入千禧年的数字宇宙。</p><button className="skin-select" aria-pressed={settings.theme === "spaceAge"} onClick={() => void patch({ theme: "spaceAge" })}>Y2K Space Age</button></div></div>
+          </div>
         </section>
         <section className="preference-card"><h2>自动变淡</h2><Toggle label="闲置后自动变淡" checked={settings.autoFade} onChange={(autoFade) => void patch({ autoFade })} />
           {settings.autoFade && <><Range label="等待时间" value={settings.autoFadeDelay} min={1} max={30} step={.1} format={(n) => `${n.toFixed(1)} 秒`} onChange={(autoFadeDelay) => void patch({ autoFadeDelay })} /><Range label="变淡后不透明度" value={settings.fadedOpacity} min={.15} max={settings.opacity} step={.05} format={percent} onChange={(fadedOpacity) => void patch({ fadedOpacity })} /></>}

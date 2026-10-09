@@ -1,8 +1,34 @@
+# Dependencies and build outputs
 node_modules/
-dist/
-release/
-src-tauri/target/
-firmware/build/
+/dist/
+/release/
+/src-tauri/target/
+/src-tauri/gen/schemas/
+/firmware/build/
 *.tsbuildinfo
-vite.config.js
-vite.config.d.ts
+/vite.config.js
+/vite.config.d.ts
+
+# Local environment and credentials (keep shareable examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Logs, coverage and temporary files
+*.log
+/coverage/
+.cache/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini

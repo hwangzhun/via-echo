@@ -5,6 +5,7 @@ import { mockIPC, clearMocks, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import { SettingsWindow } from "./SettingsWindow";
 import { Overlay } from "./Overlay";
+import { SpaceAgeDisplay } from "./SpaceAgeDisplay";
 import { DEFAULT_SETTINGS, useAppState, useAutoFade, type AppState } from "./state";
 import type { DeviceState, InputState, SettingsPatch } from "./types";
 import layout from "../src-tauri/resources/kb16-01.json";
@@ -211,6 +212,14 @@ describe("shared app state", () => {
     expect(mutations).toEqual([{ opacity: .7 }, { theme: "light" }]);
     expect(second.result.current.settings.theme).toBe("light");
     expect(second.result.current.settings.opacity).toBe(.7);
+    await act(async () => { await first.result.current.saveSettings({ theme: "y2k" }); });
+    expect(second.result.current.settings.theme).toBe("y2k");
+    await act(async () => { await first.result.current.saveSettings({ theme: "spaceAge" }); });
+    expect(second.result.current.settings.theme).toBe("spaceAge");
+    const restarted = renderHook(useAppState);
+    await waitFor(() => expect(restarted.result.current.ready).toBe(true));
+    expect(restarted.result.current.settings.theme).toBe("spaceAge");
+    expect(second.result.current.settings.accentColor).toBe(DEFAULT_SETTINGS.accentColor);
     await act(async () => { await emit("input-state", { pressedPositions: [{ row: 0, col: 0 }], encoderDeltas: [] }); await emit("device-state", { ...device(), status: "offline" }); });
     expect(first.result.current.input.pressedPositions).toEqual([]);
   });
@@ -218,6 +227,84 @@ describe("shared app state", () => {
 
 
 describe("product presentation", () => {
+  it("offers Space Age independently, retries saving and restores the normal accent", async () => {
+    const state = appState();
+    state.settings.accentColor = "#F29A67";
+    state.saveSettings = vi.fn().mockRejectedValueOnce(new Error("保存失败")).mockResolvedValue({ ...state.settings, theme: "spaceAge" });
+    const view = render(<SettingsWindow state={state} />);
+    fireEvent.click(screen.getByRole("button", { name: "悬浮窗" }));
+    const colors = within(screen.getByRole("group", { name: "界面颜色" }));
+    expect(colors.getAllByRole("button")).toHaveLength(2);
+    expect(colors.getByRole("button", { name: "亮色" })).toBeTruthy();
+    const skins = within(screen.getByRole("group", { name: "Y2K 皮肤" }));
+    expect(skins.getAllByRole("button")).toHaveLength(2);
+    expect(skins.getByRole("button", { name: "Y2K Metallic" })).toBeTruthy();
+    fireEvent.click(skins.getByRole("button", { name: "Y2K Space Age" }));
+    await screen.findByRole("alert");
+    expect(state.saveSettings).toHaveBeenCalledWith({ theme: "spaceAge" });
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    view.rerender(<SettingsWindow state={{ ...state, settings: { ...state.settings, theme: "spaceAge" } }} />);
+    expect(skins.getByRole("button", { name: "Y2K Space Age" }).getAttribute("aria-pressed")).toBe("true");
+    expect(colors.getByRole("button", { name: "深色" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByLabelText("主题强调色")).toBeNull();
+    fireEvent.click(colors.getByRole("button", { name: "深色" }));
+    await waitFor(() => expect(state.saveSettings).toHaveBeenLastCalledWith({ theme: "dark" }));
+    view.rerender(<SettingsWindow state={state} />);
+    expect((screen.getByLabelText("主题强调色") as HTMLInputElement).value).toBe("#f29a67");
+  });
+
+  it("shows Space Age telemetry in both windows and clears it on a preview layer", () => {
+    const state = appState();
+    state.settings.theme = "spaceAge";
+    state.input.pressedPositions = [{ row: 0, col: 0 }, { row: 2, col: 4 }];
+    const overlay = render(<Overlay state={state} />);
+    expect(screen.getByLabelText("Space Age 状态：第 1 层，实时输入，2 个按压")).toBeTruthy();
+    expect(overlay.container.querySelectorAll(".space-matrix .on")).toHaveLength(1);
+    expect(overlay.container.querySelectorAll(".encoder-knob.pressed")).toHaveLength(1);
+    overlay.unmount();
+    const view = render(<SettingsWindow state={state} />);
+    fireEvent.click(screen.getByRole("button", { name: "L3" }));
+    expect(screen.getByLabelText("Space Age 状态：第 3 层，手动预览，无实时输入")).toBeTruthy();
+    expect(view.container.querySelectorAll(".space-matrix .on, .pressed, .space-display.is-live")).toHaveLength(0);
+  });
+
+  it("offers the metallic skin, retries failed saves, and preserves the normal accent", async () => {
+    const state = appState();
+    state.settings.accentColor = "#F29A67";
+    state.saveSettings = vi.fn().mockRejectedValueOnce(new Error("保存失败")).mockResolvedValue({ ...state.settings, theme: "y2k" });
+    const view = render(<SettingsWindow state={state} />);
+    fireEvent.click(screen.getByRole("button", { name: "悬浮窗" }));
+    fireEvent.click(screen.getByRole("button", { name: "Y2K Metallic" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("保存失败"));
+    expect(state.saveSettings).toHaveBeenCalledWith({ theme: "y2k" });
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    view.rerender(<SettingsWindow state={{ ...state, settings: { ...state.settings, theme: "y2k" } }} />);
+    expect(screen.getByRole("button", { name: "Y2K Metallic" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByLabelText("主题强调色")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "亮色" }));
+    await waitFor(() => expect(state.saveSettings).toHaveBeenLastCalledWith({ theme: "light" }));
+    view.rerender(<SettingsWindow state={{ ...state, settings: { ...state.settings, theme: "light" } }} />);
+    expect((screen.getByLabelText("主题强调色") as HTMLInputElement).value).toBe("#f29a67");
+  });
+
+  it("shows live input in the metallic LCD and clears it during previews and disconnects", () => {
+    const state = appState();
+    state.settings.theme = "y2k";
+    state.input.pressedPositions = [{ row: 0, col: 0 }, { row: 2, col: 4 }];
+    const view = render(<SettingsWindow state={state} />);
+    expect(screen.getByLabelText("LCD 状态：第 1 层，实时输入，2 个按压")).toBeTruthy();
+    expect(view.container.querySelectorAll(".lcd-matrix .on")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "L3" }));
+    expect(screen.getByLabelText("LCD 状态：第 3 层，手动预览，无实时输入")).toBeTruthy();
+    expect(view.container.querySelectorAll(".lcd-matrix .on")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "L1" }));
+    view.rerender(<SettingsWindow state={{ ...state, device: { ...state.device, status: "offline" } }} />);
+    expect(screen.getByLabelText("LCD 状态：第 1 层，手动预览，无实时输入")).toBeTruthy();
+    expect(view.container.querySelectorAll(".lcd-matrix .on")).toHaveLength(0);
+  });
+
   it("shows the model from layout metadata and keeps manual preview available offline", () => {
     const state = appState();
     render(<Overlay state={{ ...state, layout: { ...layout, name: "测试型号" }, device: { ...state.device, status: "offline" } }} />);
@@ -234,5 +321,98 @@ describe("product presentation", () => {
     fireEvent.click(screen.getByRole("button", { name: /设备与关于/ }));
     expect(screen.getByRole("img", { name: "viaecho logo" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: /^viaecho/ })).toBeTruthy();
+  });
+});
+
+describe("Space Age activity history", () => {
+  const input = { pressedPositions: [], encoderDeltas: [] };
+  const props = () => ({ device: device(), input, layer: 0, layout });
+  const waveform = (container: HTMLElement) => container.querySelector(".space-wave polyline")!.getAttribute("points");
+
+  it("captures short taps and consumes rotary pulses once, then returns to rest", () => {
+    vi.useFakeTimers();
+    const initial = props();
+    const view = render(<SpaceAgeDisplay {...initial} />);
+    const baseline = waveform(view.container);
+    view.rerender(<SpaceAgeDisplay {...initial} input={{ pressedPositions: [{ row: 0, col: 0 }], encoderDeltas: [] }} />);
+    view.rerender(<SpaceAgeDisplay {...initial} />);
+    act(() => vi.advanceTimersByTime(160));
+    expect(waveform(view.container)).not.toBe(baseline);
+    act(() => vi.advanceTimersByTime(24 * 160));
+    expect(waveform(view.container)).toBe(baseline);
+    view.rerender(<SpaceAgeDisplay {...initial} input={{ pressedPositions: [], encoderDeltas: [{ id: "e0", steps: -3 }] }} />);
+    act(() => vi.advanceTimersByTime(160));
+    expect(waveform(view.container)).not.toBe(baseline);
+    // No fresh input packet: a stale delta must not become a continuous signal.
+    act(() => vi.advanceTimersByTime(24 * 160));
+    expect(waveform(view.container)).toBe(baseline);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(["offline", "incompatible", "error", "connecting"] as const)("clears history and stops sampling on %s", (status) => {
+    vi.useFakeTimers();
+    const initial = props();
+    const view = render(<SpaceAgeDisplay {...initial} />);
+    const baseline = waveform(view.container);
+    const active = { ...initial, input: { pressedPositions: [{ row: 0, col: 0 }], encoderDeltas: [] } };
+    view.rerender(<SpaceAgeDisplay {...active} />);
+    act(() => vi.advanceTimersByTime(160));
+    expect(waveform(view.container)).not.toBe(baseline);
+    view.rerender(<SpaceAgeDisplay {...active} device={{ ...initial.device, status }} />);
+    expect(waveform(view.container)).toBe(baseline);
+    expect(view.container.querySelectorAll(".space-matrix .on, .space-display.is-live")).toHaveLength(0);
+    expect(view.container.querySelector(".space-count b")!.textContent).toBe("00");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("starts with empty history on layer changes, including a new active layer", () => {
+    vi.useFakeTimers();
+    const initial = props();
+    const view = render(<SpaceAgeDisplay {...initial} />);
+    const baseline = waveform(view.container);
+    view.rerender(<SpaceAgeDisplay {...initial} input={{ pressedPositions: [{ row: 0, col: 0 }], encoderDeltas: [] }} />);
+    act(() => vi.advanceTimersByTime(160));
+    expect(waveform(view.container)).not.toBe(baseline);
+    view.rerender(<SpaceAgeDisplay {...initial} layer={1} />);
+    expect(waveform(view.container)).toBe(baseline);
+    expect(vi.getTimerCount()).toBe(0);
+    view.rerender(<SpaceAgeDisplay {...initial} layer={1} device={{ ...initial.device, activeLayer: 1 }} />);
+    expect(waveform(view.container)).toBe(baseline);
+  });
+
+  it("does not replay a cached rotary packet after mounting or changing layers", () => {
+    vi.useFakeTimers();
+    const initial = { ...props(), input: { pressedPositions: [], encoderDeltas: [{ id: "e0", steps: 3 }] } };
+    const view = render(<SpaceAgeDisplay {...initial} />);
+    const baseline = waveform(view.container);
+    act(() => vi.advanceTimersByTime(320));
+    expect(waveform(view.container)).toBe(baseline);
+    const fresh = { ...initial.input };
+    view.rerender(<SpaceAgeDisplay {...initial} input={fresh} />);
+    act(() => vi.advanceTimersByTime(160));
+    expect(waveform(view.container)).not.toBe(baseline);
+    view.rerender(<SpaceAgeDisplay {...initial} input={fresh} layer={1} device={{ ...initial.device, activeLayer: 1 }} />);
+    act(() => vi.advanceTimersByTime(320));
+    expect(waveform(view.container)).toBe(baseline);
+  });
+
+  it("reacts to reduced motion and cleans up the preference listener", () => {
+    vi.useFakeTimers();
+    const preference = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    vi.stubGlobal("matchMedia", vi.fn(() => preference));
+    try {
+      const view = render(<SpaceAgeDisplay {...props()} />);
+      const baseline = waveform(view.container);
+      view.rerender(<SpaceAgeDisplay {...props()} input={{ pressedPositions: [{ row: 0, col: 0 }], encoderDeltas: [] }} />);
+      act(() => vi.advanceTimersByTime(160));
+      expect(waveform(view.container)).not.toBe(baseline);
+      act(() => { preference.matches = true; preference.addEventListener.mock.calls[0][1](); });
+      expect(waveform(view.container)).toBe(baseline);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(view.container.querySelectorAll(".space-matrix .on")).toHaveLength(1);
+      view.unmount();
+      expect(preference.removeEventListener).toHaveBeenCalledWith("change", preference.addEventListener.mock.calls[0][1]);
+    } finally { vi.unstubAllGlobals(); }
   });
 });

@@ -1,99 +1,94 @@
+<p align="center">
+  <img src="logo/viaecho.svg" alt="viaecho logo" width="180" />
+</p>
+
 # viaecho
 
-viaecho 是为 **DOIO KB16-01** 设计的 Windows 悬浮键位提示器。它会自动读取 VIA 中的四层键位，跟随键盘当前层，并实时反馈 16 个普通键和 3 个旋钮的按压/旋转操作。
+为 **DOIO KB16（KB16-01）** 开发的 Windows 悬浮键位提示器，把键盘每一层的功能放到屏幕上，忘记时看一眼就能继续使用。
 
-> 正确的 QMK 目标是 `doio/kb16/rev1` 或 `doio/kb16/rev2`，USB 识别为 `D010:1601`。旧版项目中的 KB12-02 / `D010:1202` 已被移除。
+## 为什么开发它
 
-## 功能
+这个项目起源于我买了一把 DOIO KB16。它只有 16 个按键，却有 4 层配置，光普通按键就有 **4 × 16 = 64 个键位绑定**，还不包括三个旋钮的按压和旋转功能。
 
-- 自动发现、连接和重连 KB16，无需手动加载。
-- 读取 4 层 `4×5` VIA 矩阵和每层的 3 组旋钮方向映射。
-- 配套 QMK 遥测固件可准确显示当前层、多键按下、旋钮按压与双向旋转。
-- 将 QMK 代码转换为易读的中文标签，并解析 `KC_TRNS` 的实际下层动作。
-- 键盘断开时显示上次缓存；原厂固件未支持遥测时仍可手动预览四层。
-- 无边框置顶窗口、透明度、位置/大小恢复、可选开机启动和鼠标穿透。
-- 独立配置窗：四层自由预览、按层自定义显示名称、外观与设备状态管理。
-- 托盘菜单可显示/隐藏悬浮窗、解除穿透、打开配置、刷新 VIA 键位或退出。
+功能可以设得很多，但使用时很难记清每一层的键位。在键盘上标注也不太现实：同一个按键在不同层有不同用途，调整配置后还得重新标注。
 
-## 使用流程
+所以我做了 viaecho，用一个悬浮窗显示键位，让这把键盘更容易记、更方便用。它的设计围绕这个需求展开：布局对应实体键盘，功能名称可以自己填写，提示窗可以置顶、调整透明度、闲置时变淡，也可以开启鼠标穿透，尽量减少对日常工作的干扰。
 
-启动后仅显示悬浮提示窗。支持遥测的键盘会自动同步当前层、按键与旋钮状态；无遥测时可手动预览 L1–L4，断开后保留最后显示层与缓存。点击齿轮或托盘“打开配置”进入独立配置窗。
+**目前仅支持 DOIO KB16，其他键盘暂未开发，也没有适配安排。**
 
-在“键位名称”选择层，再点击键帽、旋钮按压或旋转方向，使用右侧编辑栏保存名称。预览层与设备当前层相互独立，设备切层不会打断编辑。名称仅改变显示文案，实际功能仍由 VIA 配置；恢复原名不会影响其他层或动作。切换编辑对象、页面或关闭配置窗前，可保存、放弃或取消未保存的修改。
+## 简单介绍
 
-“悬浮窗”设置仅将透明度、置顶、变淡和穿透应用于悬浮提示窗。操作 KB16 会唤醒提示，持续按住按键时保持清晰。配置窗始终不透明且可操作，穿透仍可从托盘解除。
+- 从 VIA 读取四层键位，展示按键和三个旋钮的功能。
+- 按层设置易懂的显示名称，例如“撤销”“导出”“切换工具”。
+- 配合本项目固件，自动跟随当前层，并显示按键、旋钮的实时反馈。
+- 支持外观切换、托盘操作和设备自动重连。
 
-关闭配置窗仅隐藏该窗口；关闭悬浮窗或选择托盘“退出”会结束应用。两个窗口分别恢复位置和尺寸。启动时配置窗保持隐藏，鼠标穿透恢复为关闭。
+viaecho 负责显示提示；实际键位和快捷键仍在 VIA 中设置。原厂固件也可读取键位、手动查看各层，自动跟层与实时反馈需要刷入配套固件。
 
-修改 VIA 映射后，在“设备与关于”刷新键位；只有设备读取完成后才报告成功，失败会显示原因。
+## 程序预览
 
-## 开发与运行
+下图由当前界面代码渲染，使用示例键位和模拟连接状态展示布局；实际名称与反馈取决于你的 VIA 配置和固件。
 
-需要 Node.js 18+、Rust stable 和 [Tauri 2 系统依赖](https://v2.tauri.app/start/prerequisites/)。Windows 开发还需要 Microsoft C++ Build Tools 与 WebView2。
+| 深色 | 亮色 |
+| --- | --- |
+| ![深色悬浮键位提示窗](docs/images/overlay-dark.png) | ![亮色悬浮键位提示窗](docs/images/overlay-light.png) |
+
+| Y2K Metallic | Y2K Space Age |
+| --- | --- |
+| ![Y2K 金属皮肤](docs/images/overlay-y2k.png) | ![Space Age 太空舱皮肤](docs/images/overlay-space-age.png) |
+
+**键位名称配置**：选择层、按键或旋钮功能，编辑自己的提示名称。
+
+![键位名称配置页面](docs/images/settings-labels.png)
+
+**设备与关于**：查看设备状态、刷新 VIA 键位和应用信息。
+
+![设备与关于页面及新版 logo](docs/images/settings-about.png)
+
+## 怎么使用
+
+1. **连接键盘，启动 viaecho。** 应用会自动连接设备，读取键位并显示悬浮窗。
+2. **查看每一层。** 刷入配套固件后，提示会随键盘切层；使用原厂固件时，可手动切换 L1–L4 查看。
+3. **填写功能名称。** 点击齿轮或从托盘打开配置，在“键位名称”中选择层，再点击对应的按键或旋钮功能，填写名称并保存。这只修改提示文字。
+4. **调整显示。** 在“悬浮窗”中设置皮肤、透明度、置顶、闲置变淡和鼠标穿透。开启穿透后，可从托盘解除。
+5. **同步改键。** 在 VIA 中修改键位后，到“设备与关于”点击“刷新 VIA 键位”。
+
+关闭配置窗后，提示窗仍会运行；关闭悬浮窗或从托盘选择“退出”会结束应用。
+
+## 配套固件与刷写
+
+配套固件保留 VIA 改键功能，并增加自动跟层和实时操作反馈。KB16 有两个硬件版本，**刷写前需要确认主控芯片，选择对应固件**：
+
+| 硬件版本 | 主控芯片 | 配套固件 |
+| --- | --- | --- |
+| rev1 | ATmega32U4 | [rev1 固件（.hex）](firmware/qmk_userspace/doio_kb16_rev1_via_echo.hex) |
+| rev2 | APM32F103CBT6（QMK 按 STM32F103 构建） | [rev2 固件（.bin）](firmware/qmk_userspace/doio_kb16_rev2_via_echo.bin) |
+
+可以查看 PCB 版本丝印和主控芯片上的型号，也可以在进入引导模式后查看 QMK Toolbox 的识别信息：rev1 显示 `Atmel DFU / ATmega32U4`，rev2 显示 `STM32Duino / LeafLabs Maple`。这些对应关系来自 [QMK 官方硬件说明](https://github.com/qmk/qmk_firmware/blob/master/keyboards/doio/kb16/readme.md)。无法确认版本时，先不要刷写；两个版本的固件不能混用。
+
+刷写步骤：
+
+1. 在 VIA 中导出并保存当前配置。刷写后键位可能恢复默认，需要用备份还原。
+2. 下载上表中与主控芯片对应的固件，打开 QMK Toolbox。
+3. 通过 PCB 复位按钮或已设置的 `QK_BOOT` 键位进入引导模式，确认 Toolbox 识别的设备版本。
+4. 选择对应固件并刷写，完成后重新插拔键盘。
+5. 在 VIA 中导入备份，再启动 viaecho，检查切层、按键和三个旋钮的反馈。
+
+固件构建、详细刷写步骤和恢复原固件的方法见 [固件说明](firmware/README.md)。
+
+## 从源码运行
+
+项目使用 React、TypeScript 和 Tauri 2。准备好 Node.js、Rust 与 Tauri 开发环境后运行：
 
 ```bash
 npm ci
 npm run tauri dev
 ```
 
-检查源码：
+构建安装包：`npm run tauri build`。
 
-```bash
-npm run build
-npm test
-cd src-tauri
-cargo test
-cargo clippy --all-targets -- -D warnings
-```
+## Logo 与仓库文件
 
-构建 Windows 安装产物（源码交付不包含预构建安装包）：
+Logo 的 [SVG 文件](logo/viaecho.svg) 和 [Illustrator 原稿](logo/viaecho.ai) 保存在 `logo/`。修改 SVG 后运行 `npm run icons`，即可更新应用与托盘图标；开发和构建命令也会自动检查并生成图标。
 
-```bash
-npm run tauri build
-```
-
-## 配套固件
-
-固件 userspace 位于 [`firmware/qmk_userspace`](firmware/qmk_userspace)，同时定义 rev1 和 rev2 构建目标。完整的 Windows/QMK MSYS 步骤、硬件修订区分与恢复方法见 [`firmware/README.md`](firmware/README.md)。
-
-**刷写前必须先从 VIA 导出当前配置。** 新的 VIA 固件首次启动可能重新初始化动态键位 EEPROM，刷写后需要将备份导入。不要把 rev1 固件刷入 rev2，反之亦然。
-
-遥测协议为 VIA `CustomMenuGetValue`、channel `0x00`、value `0x42`，详细字节布局见 [`firmware/TELEMETRY_PROTOCOL.md`](firmware/TELEMETRY_PROTOCOL.md)。
-
-## 项目结构
-
-- `src/` — React 双窗口界面、共享键盘组件、状态订阅、透明键解析与交互测试。
-- `src-tauri/src/` — 串行 HID/VIA 设备服务、缓存、遥测解析、键码文案和 Tauri 命令。
-- `src-tauri/resources/kb16-01.json` — 16 键 + 3 旋钮的物理布局。
-- `firmware/` — rev1/rev2 共用的 QMK/VIA 遥测固件源码与安全刷写说明。
-
-## 运行时数据
-
-- 键位缓存：系统 cache 目录下的 `via-echo/keymap-v1.json`。
-- 悬浮窗设置：系统 config 目录下的 `via-echo/settings.json`。
-- 应用不安装全局键盘钩子，不读取其他键盘的系统输入。
-
-## 双窗口接口与验证
-
-- `open_settings` 打开或聚焦单例配置窗；窗口标签分别为 `main` 和 `settings`。
-- `update_settings({ patch })` 按字段合并设置，`customLabels` 按标识逐项合并，值为 `null` 时移除该项。后端串行处理并广播 `settings-changed`，保存失败会返回错误。
-- `refresh_keymap` 请求读取，`get_refresh_state` 和 `refresh-state` 提供 `idle / running / success / error` 状态；命令返回不代表读取成功。
-- 前端测试覆盖编辑草稿保护、设备切层、保存失败重试、跨窗口同步、刷新状态与变淡计时；Rust 测试覆盖补丁合并、旧设置兼容及已有协议行为。
-
-Windows 实机验收步骤：
-
-1. 连接配套遥测固件，配置窗预览其他层并编辑名称；切换硬件层，确认草稿保留、悬浮窗跟随，非当前预览层不显示输入高亮。
-2. 启用变淡，等待变淡后按键／旋转，确认立即恢复；长按超过等待时间不变淡，释放后重新计时。
-3. 启用鼠标穿透，确认配置窗仍可操作；用托盘解除并恢复悬浮窗。
-4. 关闭配置窗后通过托盘重新打开；关闭悬浮窗后确认应用与托盘一并退出。
-5. 改变两窗位置和尺寸并重启，确认分别恢复，配置窗仍隐藏且穿透关闭。
-6. 在 100%、150%、200% 缩放，以及配置窗最小尺寸 800×560 下检查文字、旋钮标签、滚动与键盘导航。
-7. 使用无遥测固件和拔插设备，确认手动预览、缓存标识、刷新失败反馈与自动重连。
-
-界面字体、图标和标题栏规范见 [`docs/ui-typography.md`](docs/ui-typography.md)。
-
-### 品牌资源
-
-应用名称统一为 `viaecho`。原始 logo 位于 `logo/viaecho.svg`，执行 `npm run icons` 会生成应用与托盘图标；构建时也会检查并更新。关于页面复用同一 logo。为兼容旧版本，设置与缓存仍保存在原有 `via-echo` 目录，应用标识保持不变。
-
-配置页键盘按可用宽高等比例缩放；连接指示灯固定为绿色（已连接，包括无遥测）、灰色（未连接/连接中）和红色（错误），不受强调色影响。
+仓库保留前端和 Rust 源码、依赖锁文件、设备布局、logo 与应用图标、文档预览图，以及配套固件的源码和刷写文件。`node_modules/`、`dist/`、`src-tauri/target/`、自动生成的 Tauri schema、TypeScript 构建缓存、环境配置和本地 `release/` 产物由 `.gitignore` 排除。应用可执行文件与安装包可在发布时上传至 GitHub Releases。

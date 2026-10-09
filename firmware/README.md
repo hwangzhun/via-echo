@@ -15,8 +15,10 @@
 ## 如何识别 rev1 和 rev2
 
 - `rev1`：QMK 使用 `atmega32u4` 处理器和 `atmel-dfu` 引导程序。
-- `rev2`：QMK 使用 `STM32F103` 目标和 `stm32duino` 引导程序。
-- 可优先检查 PCB 上的版本丝印和主控芯片型号。如果仍不能确定，请先停止刷写。
+- `rev2`：主控为 `APM32F103CBT6`（兼容 STM32F103CBT6），QMK 使用 `STM32F103` 目标和 `stm32duino` 引导程序。
+- 可优先检查 PCB 上的版本丝印和主控芯片型号，也可查看 QMK Toolbox 的引导模式识别信息：rev1 为 `Atmel DFU / ATmega32U4`，rev2 为 `STM32Duino / LeafLabs Maple`。如果仍不能确定，请先停止刷写。
+
+版本与芯片的对应关系见 [QMK 官方硬件说明](https://github.com/qmk/qmk_firmware/blob/master/keyboards/doio/kb16/readme.md)。仓库已提供 [rev1 `.hex` 固件](qmk_userspace/doio_kb16_rev1_via_echo.hex) 和 [rev2 `.bin` 固件](qmk_userspace/doio_kb16_rev2_via_echo.bin)，直接刷写时无需自行构建。
 
 ## 在 Windows 上使用 QMK MSYS 构建
 

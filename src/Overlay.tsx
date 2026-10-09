@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Keyboard, LayerTabs } from "./Keyboard";
 import { WindowTitlebar } from "./WindowTitlebar";
+import { Y2kDisplay } from "./Y2kDisplay";
+import { SpaceAgeDisplay } from "./SpaceAgeDisplay";
 import { useAutoFade, type AppState } from "./state";
 
 export function Overlay({ state }: { state: AppState }) {
@@ -22,6 +24,8 @@ export function Overlay({ state }: { state: AppState }) {
       onClose={() => run(invoke("exit_app"))} onConfigure={() => run(invoke("open_settings"))}>
       <span className="current-layer">L{layer + 1}<small>{live ? "跟随键盘" : "手动预览"}</small></span>
     </WindowTitlebar>
+    {settings.theme === "y2k" && <Y2kDisplay device={device} input={input} layer={layer} layout={layout} />}
+    {settings.theme === "spaceAge" && <SpaceAgeDisplay device={device} input={input} layer={layer} layout={layout} />}
     <main className="workspace">{layout && <Keyboard layout={layout} device={device} settings={settings} input={input} layer={layer} />}</main>
     <footer className="overlay-footer">
       <span className="keyboard-model">键盘型号：{layout?.name ?? "未知"}</span>

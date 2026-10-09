@@ -14,6 +14,11 @@ export function Keyboard({ layout, device, settings, input, layer, selected, onS
   useLayoutEffect(() => {
     const parent = stageRef.current?.parentElement;
     if (!parent || typeof ResizeObserver === "undefined") return;
+    // Fit before the first paint as well as on resize; observer delivery may be delayed.
+    const style = window.getComputedStyle(parent);
+    const width = parent.clientWidth - parseFloat(style.paddingLeft || "0") - parseFloat(style.paddingRight || "0");
+    const height = parent.clientHeight - parseFloat(style.paddingTop || "0") - parseFloat(style.paddingBottom || "0");
+    setStageWidth(Math.max(0, Math.min(width, height * layout.width / layout.height)));
     const observer = new ResizeObserver(([entry]) => {
       setStageWidth(Math.min(entry.contentRect.width, entry.contentRect.height * layout.width / layout.height));
     });

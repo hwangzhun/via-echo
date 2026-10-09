@@ -14,6 +14,7 @@ use tauri::menu::MenuBuilder;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 struct SettingsState(Mutex<AppSettings>);
 
@@ -172,6 +173,29 @@ fn apply_window_settings(
     Ok(())
 }
 
+fn ensure_window_min_size(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    let Some(config) = window
+        .app_handle()
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == window.label())
+    else {
+        return Ok(());
+    };
+    // Old saved sizes may predate the current minimum. Compare logical pixels for HiDPI.
+    let size = window
+        .inner_size()?
+        .to_logical::<f64>(window.scale_factor()?);
+    let width = size.width.max(config.min_width.unwrap_or(0.0));
+    let height = size.height.max(config.min_height.unwrap_or(0.0));
+    if width > size.width || height > size.height {
+        window.set_size(tauri::LogicalSize::new(width, height))?;
+    }
+    Ok(())
+}
+
 fn sync_autostart(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
     if enabled {
@@ -189,10 +213,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::SIZE
-                        | tauri_plugin_window_state::StateFlags::POSITION,
-                )
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
+                .skip_initial_state("main")
                 .build(),
         )
         .plugin(tauri_plugin_autostart::init(
@@ -214,6 +236,11 @@ pub fn run() {
         })
         .setup(move |app| {
             if let Some(window) = app.get_webview_window("main") {
+                // Restore first so a deferred plugin callback cannot override the minimum.
+                if let Err(error) = window.restore_state(StateFlags::SIZE | StateFlags::POSITION) {
+                    eprintln!("无法恢复悬浮窗位置与尺寸：{error}");
+                }
+                ensure_window_min_size(&window)?;
                 apply_window_settings(&window, &setup_settings)?;
             }
             app.manage(DeviceService::spawn(
