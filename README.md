@@ -87,12 +87,6 @@ npm run tauri dev
 
 构建安装包：`npm run tauri build`。
 
-## Logo 与仓库文件
-
-Logo 的 [SVG 文件](logo/viaecho.svg) 和 [Illustrator 原稿](logo/viaecho.ai) 保存在 `logo/`。修改 SVG 后运行 `npm run icons`，即可更新应用与托盘图标；开发和构建命令也会自动检查并生成图标。
-
-仓库保留前端和 Rust 源码、依赖锁文件、设备布局、logo 与应用图标、文档预览图，以及配套固件的源码和刷写文件。`node_modules/`、`dist/`、`src-tauri/target/`、自动生成的 Tauri schema、TypeScript 构建缓存、环境配置和本地 `release/` 产物由 `.gitignore` 排除。应用可执行文件与安装包可在发布时上传至 GitHub Releases。
-
 ## 许可证
 
 Copyright (c) 2026 hwangzhun。
